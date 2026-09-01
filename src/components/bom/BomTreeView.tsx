@@ -41,10 +41,13 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
   const { t } = useI18n();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Expansion State
+  // Expansion State: By default expand root node and first module
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(() => {
     const defaultExpanded = new Set<string>();
-    nodes.filter((n) => n.level <= 2).forEach((n) => defaultExpanded.add(n.id));
+    const root = nodes.find((n) => n.level === 1);
+    if (root) defaultExpanded.add(root.id);
+    const firstL2 = nodes.find((n) => n.level === 2);
+    if (firstL2) defaultExpanded.add(firstL2.id);
     return defaultExpanded;
   });
 
@@ -62,12 +65,33 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
   // Delete Confirm Modal
   const [deleteConfirmNode, setDeleteConfirmNode] = useState<BOMNode | null>(null);
 
+  /**
+   * Smart Accordion Expansion:
+   * When expanding a node, automatically collapse sibling branches under the same parent
+   * to keep the tree clean, focused, and completely prevent visual card collisions/overlaps.
+   */
   const toggleExpand = (nodeId: string) => {
     setExpandedNodes((prev) => {
       const next = new Set(prev);
       if (next.has(nodeId)) {
+        // Collapsing: remove this node and all its nested children
+        const descendants = getDescendantNodeIds(nodes, nodeId);
         next.delete(nodeId);
+        descendants.forEach((d) => next.delete(d));
       } else {
+        // Expanding: find target node and its siblings
+        const targetNode = nodes.find((n) => n.id === nodeId);
+        if (targetNode) {
+          // Collapse all sibling branches at the same level under the same parent
+          const siblings = nodes.filter(
+            (n) => n.parentId === targetNode.parentId && n.id !== targetNode.id
+          );
+          siblings.forEach((sibling) => {
+            next.delete(sibling.id);
+            const siblingDescendants = getDescendantNodeIds(nodes, sibling.id);
+            siblingDescendants.forEach((d) => next.delete(d));
+          });
+        }
         next.add(nodeId);
       }
       return next;
@@ -193,8 +217,8 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
             {/* Center line from parent */}
             <div className="w-0.5 h-7 bg-gradient-to-b from-indigo-500 to-indigo-400 shadow-glow" />
 
-            {/* Symmetrical child branches container */}
-            <div className="w-full flex flex-row items-start justify-center gap-6 sm:gap-8 relative pt-2 px-4">
+            {/* Symmetrical child branches container - dynamic width to prevent overlap */}
+            <div className="w-fit min-w-full flex flex-row items-start justify-center gap-8 relative pt-2 px-4">
               {/* Horizontal connecting ribbon across multiple children */}
               {children.length > 1 && (
                 <div className="absolute top-0 left-24 right-24 h-0.5 bg-indigo-500/50 rounded-full" />
@@ -203,7 +227,7 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
               {children.map((child) => (
                 <div
                   key={child.id}
-                  className="flex-1 min-w-[420px] max-w-[500px] flex flex-col items-center relative"
+                  className="flex flex-col items-center shrink-0 w-fit relative"
                 >
                   {/* Top vertical branch stub */}
                   <div className="w-0.5 h-3.5 bg-indigo-500/60 mb-1" />
