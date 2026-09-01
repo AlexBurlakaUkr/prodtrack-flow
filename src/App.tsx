@@ -252,7 +252,8 @@ export const App: React.FC = () => {
           dueDate: new Date(Date.now() + 60 * 86400000).toISOString().split('T')[0],
           batchQuantity: project.targetOutputUnits,
           unit: 'units',
-          weight: 1,
+          normHours: 50,
+          weight: 50,
           orderIndex: 0,
           notes: project.description,
         };

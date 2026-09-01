@@ -1,26 +1,36 @@
 import { BOMNode, NodeStatus } from '../types';
 
 /**
- * Calculates roll-up progress and status for hierarchical BOM nodes.
- * The completion % of any parent component is automatically recalculated as the weighted average
- * of its direct child components based on their individual weights.
+ * Calculates automated cascade roll-up norm-hours and weighted progress for hierarchical BOM nodes.
+ * Rules:
+ * 1. Parent Norm-Hours (L1-L4) = Sum of all direct children's Norm-Hours.
+ * 2. Parent Progress % = [Sum of (Child Progress % * Child Norm-Hours)] / [Sum of Child Norm-Hours].
+ * 3. Status is automatically adjusted based on rolled-up progress and child blocker states.
  */
 export function recalculateNodeRollups(nodes: BOMNode[]): BOMNode[] {
   // Create a fast lookup map and deep copy array to avoid direct mutation
   const nodeMap = new Map<string, BOMNode>();
   const clonedNodes: BOMNode[] = nodes.map((node) => {
     // Normalize multi-assignee array
-    const assignees = node.assignees && node.assignees.length > 0
-      ? node.assignees
-      : node.assignee
-      ? [node.assignee]
-      : [];
+    const assignees =
+      node.assignees && node.assignees.length > 0
+        ? node.assignees
+        : node.assignee
+        ? [node.assignee]
+        : [];
+
+    const rawHours = typeof node.normHours === 'number' && node.normHours >= 0
+      ? node.normHours
+      : typeof node.weight === 'number' && node.weight > 0
+      ? node.weight * 5
+      : 5;
 
     return {
       ...node,
       assignees,
       assignee: assignees[0] || node.assignee,
-      weight: typeof node.weight === 'number' && node.weight > 0 ? node.weight : 1,
+      normHours: rawHours,
+      weight: rawHours,
     };
   });
 
@@ -48,7 +58,7 @@ export function recalculateNodeRollups(nodes: BOMNode[]): BOMNode[] {
 
     const childIds = childrenMap.get(id);
     if (childIds && childIds.length > 0) {
-      let totalWeight = 0;
+      let totalChildHours = 0;
       let weightedProgressSum = 0;
       let hasDelayedChild = false;
       let allCompleted = true;
@@ -57,9 +67,9 @@ export function recalculateNodeRollups(nodes: BOMNode[]): BOMNode[] {
       childIds.forEach((childId) => {
         const childNode = nodeMap.get(childId);
         if (childNode) {
-          const w = childNode.weight && childNode.weight > 0 ? childNode.weight : 1;
-          totalWeight += w;
-          weightedProgressSum += childNode.progress * w;
+          const hours = childNode.normHours && childNode.normHours > 0 ? childNode.normHours : 1;
+          totalChildHours += hours;
+          weightedProgressSum += childNode.progress * hours;
 
           if (childNode.status === 'delayed') {
             hasDelayedChild = true;
@@ -73,11 +83,16 @@ export function recalculateNodeRollups(nodes: BOMNode[]): BOMNode[] {
         }
       });
 
-      // Calculate weighted progress
-      const computedProgress = totalWeight > 0 ? Math.round(weightedProgressSum / totalWeight) : 0;
+      // 1. Dynamic summation of child hours for parent node
+      node.normHours = Math.round(totalChildHours * 10) / 10;
+      node.weight = node.normHours;
+
+      // 2. Weighted progress percentage by norm-hours
+      const computedProgress =
+        totalChildHours > 0 ? Math.round(weightedProgressSum / totalChildHours) : 0;
       node.progress = Math.min(100, Math.max(0, computedProgress));
 
-      // Adjust status intelligently based on rolled-up progress
+      // 3. Status adjustment
       if (node.progress === 100 || allCompleted) {
         node.status = 'completed';
       } else if (hasDelayedChild && node.status !== 'completed') {

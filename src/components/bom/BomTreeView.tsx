@@ -382,6 +382,7 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
         nodeToEdit={nodeToEdit}
         parentNode={parentNodeForNew}
         projectId={project.id}
+        hasChildren={nodeToEdit ? Boolean(childrenLookup.get(nodeToEdit.id)?.length) : false}
         onSave={(node) => {
           onSaveNode(node);
           setEditModalOpen(false);

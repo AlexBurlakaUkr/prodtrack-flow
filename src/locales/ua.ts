@@ -58,7 +58,7 @@ export const ua: Record<TranslationKey, string> = {
   
   // BOM Tree View
   bom_canvas_title: 'Інтерактивна візуальна специфікація BOM',
-  bom_canvas_subtitle: 'Симетрично вирівняне 5-рівневе дерево з автоматичним зваженим перерахунком прогресу вгору',
+  bom_canvas_subtitle: 'Симетрично вирівняне 5-рівневе дерево з автоматичним зведенням нормо-годин',
   expand_all: 'Розгорнути все',
   collapse_all: 'Згорнути все',
   zoom_in: 'Збільшити',
@@ -81,8 +81,13 @@ export const ua: Record<TranslationKey, string> = {
   upload_photo: 'Завантажити фото',
   remove_photo: 'Видалити фото',
   drop_photo_hint: 'Натисніть для вибору або перетягніть зображення (PNG, JPG, WebP)',
-  rollup_notice: 'Прогрес батьківського вузла автоматично вираховується як зважене середнє дочірніх на основі ваг.',
-  weight: 'Вага у структурі',
+  rollup_notice: 'Прогрес батьківського вузла автоматично вираховується як зважене середнє на основі нормо-годин підкомпонентів.',
+  norm_hours: 'Трудомісткість (нормо-години)',
+  norm_hours_short: 'Нормо-години (год)',
+  norm_hours_unit: 'год',
+  norm_hours_locked_hint: 'Розраховується автоматично як сума підкомпонентів',
+  progress_locked_hint: 'Розраховується автоматично на основі підкомпонентів',
+  parent_rollup_hours_badge: '∑ {hours} год з {count} вузлів',
   unit: 'Одиниця виміру',
   due_in_days: 'Дедлайн через {days} дн.',
   overdue_by_days: 'Прострочено на {days} дн.',
@@ -126,7 +131,7 @@ export const ua: Record<TranslationKey, string> = {
   template_code: 'Код шаблону',
   template_desc: 'Опис шаблону',
   template_editor_title: 'Редактор шаблону виробу',
-  template_editor_desc: 'Налаштуйте ієрархію вузлів, базові ваги та типові терміни без впливу на активні замовлення.',
+  template_editor_desc: 'Налаштуйте ієрархію вузлів, трудомісткість (нормо-години) та типові терміни без впливу на активні замовлення.',
   save_template_success: 'Шаблон виробу успішно збережено!',
   instantiate_success: 'Новий проєкт та партію успішно створено з шаблону!',
   

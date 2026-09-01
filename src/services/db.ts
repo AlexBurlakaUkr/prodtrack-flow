@@ -122,15 +122,23 @@ export async function saveNodeAndRecalculate(node: BOMNode): Promise<BOMNode[]> 
     ? [node.assignee]
     : [];
 
+  const rawHours = typeof node.normHours === 'number' && node.normHours >= 0
+    ? node.normHours
+    : typeof node.weight === 'number' && node.weight > 0
+    ? node.weight
+    : 8;
+
   const normalizedNode: BOMNode = {
     ...node,
     assignees,
     assignee: assignees[0] || node.assignee,
+    normHours: rawHours,
+    weight: rawHours,
   };
 
   await db.nodes.put(normalizedNode);
   
-  // Fetch all nodes for this project to recalculate rollups
+  // Fetch all nodes for this project to recalculate rollups bottom-up
   const projectNodes = await db.nodes.where('projectId').equals(node.projectId).toArray();
   const updatedNodes = recalculateNodeRollups(projectNodes);
   
@@ -178,7 +186,6 @@ export async function saveProjectAsTemplate(
 
   const nodes = await db.nodes.where('projectId').equals(projectId).toArray();
   
-  // Map project nodes to template nodes
   const templateId = `tmpl-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
   const idMap = new Map<string, string>();
   
@@ -187,6 +194,7 @@ export async function saveProjectAsTemplate(
   });
 
   const templateNodes: TemplateNode[] = nodes.map((n) => {
+    const hours = typeof n.normHours === 'number' ? n.normHours : n.weight || 8;
     return {
       id: idMap.get(n.id)!,
       parentId: n.parentId ? idMap.get(n.parentId) || null : null,
@@ -196,7 +204,8 @@ export async function saveProjectAsTemplate(
       defaultDurationDays: 14,
       defaultBatchQuantity: n.batchQuantity,
       unit: n.unit,
-      weight: n.weight || 1,
+      normHours: hours,
+      weight: hours,
       notes: n.notes,
       image: n.image,
       orderIndex: n.orderIndex,
@@ -257,7 +266,6 @@ export async function instantiateTemplateToProject(
     templateId: template.id,
   };
 
-  // Map template node IDs to instance node IDs
   const idMap = new Map<string, string>();
   template.nodes.forEach((tn) => {
     if (tn.parentId === null) {
@@ -273,6 +281,7 @@ export async function instantiateTemplateToProject(
     const matchedAssignee = team.find((t) => t.role === tn.suggestedRole) || defaultAssignee;
     const durationDays = tn.defaultDurationDays || 14;
     const dueDate = addDays(startDate, durationDays);
+    const hours = typeof tn.normHours === 'number' ? tn.normHours : tn.weight || 8;
 
     return {
       id: idMap.get(tn.id)!,
@@ -289,7 +298,8 @@ export async function instantiateTemplateToProject(
       dueDate: format(dueDate, 'yyyy-MM-dd'),
       batchQuantity: tn.defaultBatchQuantity * (tn.level === 1 ? batchQuantity : 1),
       unit: tn.unit,
-      weight: tn.weight || 1,
+      normHours: hours,
+      weight: hours,
       orderIndex: tn.orderIndex,
       notes: tn.notes,
       image: tn.image,
@@ -298,7 +308,6 @@ export async function instantiateTemplateToProject(
 
   const calculatedNodes = recalculateNodeRollups(instanceNodes);
 
-  // Optionally create initial Production Order
   let newOrder: ProductionOrder | undefined = undefined;
   if (customerName) {
     newOrder = {
@@ -322,7 +331,7 @@ export async function instantiateTemplateToProject(
     };
   }
 
-  await db.transaction('rw', db.projects, db.nodes, db.orders, async () => {
+  await db.transaction('rw', [db.projects, db.nodes, db.orders], async () => {
     await db.projects.put(newProject);
     await db.nodes.bulkPut(calculatedNodes);
     if (newOrder) {

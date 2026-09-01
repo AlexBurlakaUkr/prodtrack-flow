@@ -56,7 +56,7 @@ export const en = {
   
   // BOM Tree View
   bom_canvas_title: 'Interactive Visual Bill of Materials',
-  bom_canvas_subtitle: 'Symmetrically Aligned 5-Level Hierarchical Tree with Real-Time Progress Weighting',
+  bom_canvas_subtitle: 'Symmetrically Aligned 5-Level Hierarchical Tree with Real-Time Labor Hours Roll-Up',
   expand_all: 'Expand All',
   collapse_all: 'Collapse All',
   zoom_in: 'Zoom In',
@@ -79,8 +79,13 @@ export const en = {
   upload_photo: 'Upload Image',
   remove_photo: 'Remove Image',
   drop_photo_hint: 'Click to browse or drop an image file (PNG, JPG, WebP)',
-  rollup_notice: 'Parent progress is automatically calculated as weighted average of child elements based on weights.',
-  weight: 'Roll-up Weight',
+  rollup_notice: 'Parent progress is automatically calculated as weighted average based on child norm-hours.',
+  norm_hours: 'Labor Intensity (Norm-Hours)',
+  norm_hours_short: 'Norm-Hours (h)',
+  norm_hours_unit: 'h',
+  norm_hours_locked_hint: 'Calculated automatically as sum of direct sub-components',
+  progress_locked_hint: 'Calculated automatically based on sub-components',
+  parent_rollup_hours_badge: '∑ {hours}h from {count} parts',
   unit: 'Unit of Measure',
   due_in_days: 'Due in {days}d',
   overdue_by_days: 'Overdue by {days}d',
@@ -124,7 +129,7 @@ export const en = {
   template_code: 'Template Code',
   template_desc: 'Template Description',
   template_editor_title: 'Product Template Editor',
-  template_editor_desc: 'Modify component hierarchies, weights, and standard durations without impacting active projects.',
+  template_editor_desc: 'Modify component hierarchies, labor norm-hours, and standard durations without impacting active projects.',
   save_template_success: 'Blueprint template saved successfully!',
   instantiate_success: 'New project & production order instantiated from template!',
   

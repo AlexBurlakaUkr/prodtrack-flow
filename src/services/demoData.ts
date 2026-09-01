@@ -111,7 +111,8 @@ const rawDemoNodes: BOMNode[] = [
     batchQuantity: 1,
     unit: 'pack',
     notes: 'Structural battery pack integrating 4 high-voltage module blocks, full-span liquid ribbon cooling, and master BMS controller.',
-    weight: 1,
+    normHours: 175,
+    weight: 175,
     orderIndex: 0,
   },
 
@@ -133,7 +134,8 @@ const rawDemoNodes: BOMNode[] = [
     batchQuantity: 4,
     unit: 'modules',
     notes: 'Four 96s46p cell brick modules forming the 400V DC high-voltage architecture.',
-    weight: 4,
+    normHours: 104,
+    weight: 104,
     orderIndex: 0,
   },
   {
@@ -153,7 +155,8 @@ const rawDemoNodes: BOMNode[] = [
     batchQuantity: 1,
     unit: 'set',
     notes: 'Centralized Battery Management System with CAN-FD and redundant pyrotechnic disconnect safety circuit.',
-    weight: 2,
+    normHours: 18,
+    weight: 18,
     orderIndex: 1,
   },
   {
@@ -173,7 +176,8 @@ const rawDemoNodes: BOMNode[] = [
     batchQuantity: 1,
     unit: 'system',
     notes: 'Extruded aluminum serpentine cooling ribbons with glycol/water loop capable of 15kW heat rejection during Supercharging.',
-    weight: 2,
+    normHours: 28,
+    weight: 28,
     orderIndex: 2,
   },
   {
@@ -193,7 +197,8 @@ const rawDemoNodes: BOMNode[] = [
     batchQuantity: 1,
     unit: 'tray',
     notes: 'Die-cast aluminum structural bottom tray with EPDM environmental gasket and high-strength steel top lid.',
-    weight: 2,
+    normHours: 25,
+    weight: 25,
     orderIndex: 3,
   },
 
@@ -215,7 +220,8 @@ const rawDemoNodes: BOMNode[] = [
     batchQuantity: 46,
     unit: 'bricks',
     notes: '46 high-density cell matrix blocks with fire-retardant intumescent spacers.',
-    weight: 3,
+    normHours: 56,
+    weight: 56,
     orderIndex: 0,
   },
   {
@@ -235,7 +241,8 @@ const rawDemoNodes: BOMNode[] = [
     batchQuantity: 8,
     unit: 'grids',
     notes: 'Precision stamped copper/aluminum collector plates with automated wire-bonding.',
-    weight: 2,
+    normHours: 48,
+    weight: 48,
     orderIndex: 1,
   },
   {
@@ -255,7 +262,8 @@ const rawDemoNodes: BOMNode[] = [
     batchQuantity: 4,
     unit: 'pcba',
     notes: 'Multi-channel ASIC voltage and temperature sense boards for millivolt-level accuracy.',
-    weight: 2,
+    normHours: 8,
+    weight: 8,
     orderIndex: 0,
   },
   {
@@ -275,7 +283,8 @@ const rawDemoNodes: BOMNode[] = [
     batchQuantity: 1,
     unit: 'unit',
     notes: 'Sub-millisecond pyro safety disconnect triggered by collision accelerometer or overcurrent trip.',
-    weight: 1,
+    normHours: 10,
+    weight: 10,
     orderIndex: 1,
   },
   {
@@ -295,7 +304,8 @@ const rawDemoNodes: BOMNode[] = [
     batchQuantity: 8,
     unit: 'ribbons',
     notes: 'Serpentine corrugated aluminum extrusion channels snaking between cell rows.',
-    weight: 2,
+    normHours: 16,
+    weight: 16,
     orderIndex: 0,
   },
   {
@@ -315,7 +325,8 @@ const rawDemoNodes: BOMNode[] = [
     batchQuantity: 20,
     unit: 'liters',
     notes: 'Thermally conductive potting compound providing structural adhesion and flame retardancy.',
-    weight: 1,
+    normHours: 12,
+    weight: 12,
     orderIndex: 1,
   },
   {
@@ -335,7 +346,8 @@ const rawDemoNodes: BOMNode[] = [
     batchQuantity: 1,
     unit: 'tray',
     notes: 'High-integrity aluminum casting with integral chassis mounting brackets.',
-    weight: 2,
+    normHours: 25,
+    weight: 25,
     orderIndex: 0,
   },
 
@@ -357,7 +369,8 @@ const rawDemoNodes: BOMNode[] = [
     batchQuantity: 4416,
     unit: 'cells',
     notes: 'High-nickel cathode 2170 form-factor cylindrical cells with silicon-doped graphite anodes.',
-    weight: 3,
+    normHours: 42,
+    weight: 42,
     orderIndex: 0,
   },
   {
@@ -377,7 +390,8 @@ const rawDemoNodes: BOMNode[] = [
     batchQuantity: 92,
     unit: 'halves',
     notes: 'Precision injection-molded polycarbonate flame-retardant cell spacing grid.',
-    weight: 1,
+    normHours: 14,
+    weight: 14,
     orderIndex: 1,
   },
   {
@@ -397,7 +411,8 @@ const rawDemoNodes: BOMNode[] = [
     batchQuantity: 184,
     unit: 'plates',
     notes: 'Oxygen-free high conductivity (OFHC) copper stamped busbars with laser weld targets.',
-    weight: 2,
+    normHours: 48,
+    weight: 48,
     orderIndex: 0,
   },
   {
@@ -417,7 +432,8 @@ const rawDemoNodes: BOMNode[] = [
     batchQuantity: 4,
     unit: 'boards',
     notes: 'Dual-core ASIL-D certified safety MCU with real-time fault detection and telemetry.',
-    weight: 1,
+    normHours: 8,
+    weight: 8,
     orderIndex: 0,
   },
   {
@@ -437,11 +453,12 @@ const rawDemoNodes: BOMNode[] = [
     batchQuantity: 32,
     unit: 'tubes',
     notes: 'Multi-port extruded aluminum cooling ribbons with interior flow turbulence fins.',
-    weight: 1,
+    normHours: 16,
+    weight: 16,
     orderIndex: 0,
   },
 
-  // LEVEL 5: Parts / Manufacturing Operations
+  // LEVEL 5: Parts / Manufacturing Operations (Leaf nodes)
   {
     id: 'node-l5-ocv-sort',
     projectId: DEMO_PROJECT_ID,
@@ -459,7 +476,8 @@ const rawDemoNodes: BOMNode[] = [
     batchQuantity: 4416,
     unit: 'tests',
     notes: 'Automated 4-point Kelvin probe testing sorting cells into 0.5mOhm matching capacity bins. Spectrometer #2 recalibration required.',
-    weight: 1,
+    normHours: 18,
+    weight: 18,
     orderIndex: 0,
   },
   {
@@ -479,7 +497,8 @@ const rawDemoNodes: BOMNode[] = [
     batchQuantity: 4416,
     unit: 'insertions',
     notes: 'High-speed robotic gantry inserting matched cells with alternating polarity into dielectric matrix.',
-    weight: 1,
+    normHours: 24,
+    weight: 24,
     orderIndex: 1,
   },
   {
@@ -499,7 +518,8 @@ const rawDemoNodes: BOMNode[] = [
     batchQuantity: 8832,
     unit: 'welds',
     notes: 'Fiber laser scanner welding positive button tops and negative casing shoulders without thermal bleed.',
-    weight: 2,
+    normHours: 36,
+    weight: 36,
     orderIndex: 0,
   },
   {
@@ -519,7 +539,8 @@ const rawDemoNodes: BOMNode[] = [
     batchQuantity: 400,
     unit: 'samples',
     notes: 'Mechanical shear and pull force validation testing (min 35N spec) and micro-ohm resistance checks.',
-    weight: 1,
+    normHours: 12,
+    weight: 12,
     orderIndex: 1,
   },
   {
@@ -539,7 +560,8 @@ const rawDemoNodes: BOMNode[] = [
     batchQuantity: 4,
     unit: 'flashes',
     notes: 'Production firmware release v2026.8.2 flashed with cryptographically signed secure boot keys.',
-    weight: 1,
+    normHours: 8,
+    weight: 8,
     orderIndex: 0,
   },
   {
@@ -559,14 +581,15 @@ const rawDemoNodes: BOMNode[] = [
     batchQuantity: 32,
     unit: 'tests',
     notes: 'Vacuum chamber pressurized to 2.5 bar with 10% Helium mix; threshold < 1.0E-5 mbar*l/s.',
-    weight: 1,
+    normHours: 16,
+    weight: 16,
     orderIndex: 0,
   },
 ];
 
 export const DEMO_NODES: BOMNode[] = recalculateNodeRollups(rawDemoNodes);
 
-// Convert rawDemoNodes into a reusable Product Template
+// Convert rawDemoNodes into a reusable Product Template with normHours
 export const DEMO_TEMPLATES: ProductTemplate[] = [
   {
     id: DEMO_TEMPLATE_ID,
@@ -587,11 +610,12 @@ export const DEMO_TEMPLATES: ProductTemplate[] = [
       defaultDurationDays: 14,
       defaultBatchQuantity: n.batchQuantity,
       unit: n.unit,
-      weight: n.weight,
+      normHours: n.normHours || 10,
+      weight: n.normHours || 10,
       notes: n.notes,
       image: n.image,
       orderIndex: n.orderIndex,
-      suggestedRole: n.assignee?.role || 'Lead Specialist',
+      suggestedRole: n.assignees?.[0]?.role || n.assignee?.role || 'Lead Specialist',
     })),
   },
   {
@@ -614,7 +638,8 @@ export const DEMO_TEMPLATES: ProductTemplate[] = [
         defaultDurationDays: 30,
         defaultBatchQuantity: 1,
         unit: 'unit',
-        weight: 1,
+        normHours: 75,
+        weight: 75,
         orderIndex: 0,
         suggestedRole: 'Chief Power Architect',
         notes: 'High-efficiency 350kW continuous traction power inverter with dual independent motor channels.',
@@ -628,7 +653,8 @@ export const DEMO_TEMPLATES: ProductTemplate[] = [
         defaultDurationDays: 20,
         defaultBatchQuantity: 6,
         unit: 'modules',
-        weight: 3,
+        normHours: 45,
+        weight: 45,
         orderIndex: 0,
         suggestedRole: 'Lead Power Electronics Engineer',
         notes: '1200V / 600A automotive qualified SiC MOSFET half-bridge power modules.',
@@ -642,7 +668,8 @@ export const DEMO_TEMPLATES: ProductTemplate[] = [
         defaultDurationDays: 15,
         defaultBatchQuantity: 2,
         unit: 'boards',
-        weight: 2,
+        normHours: 30,
+        weight: 30,
         orderIndex: 1,
         suggestedRole: 'BMS Firmware Lead',
         notes: 'High-speed 5kV isolated gate drivers with active Miller clamp and desaturation fault protection.',
@@ -656,7 +683,8 @@ export const DEMO_TEMPLATES: ProductTemplate[] = [
         defaultDurationDays: 10,
         defaultBatchQuantity: 1,
         unit: 'block',
-        weight: 2,
+        normHours: 25,
+        weight: 25,
         orderIndex: 0,
         suggestedRole: 'Quality & Thermal Specialist',
         notes: 'Custom polypropylene film capacitor with integrated copper planar busbar.',
@@ -670,7 +698,8 @@ export const DEMO_TEMPLATES: ProductTemplate[] = [
         defaultDurationDays: 12,
         defaultBatchQuantity: 1,
         unit: 'chiller',
-        weight: 1,
+        normHours: 20,
+        weight: 20,
         orderIndex: 1,
         suggestedRole: 'Lead Automation Engineer',
         notes: 'Micro pin-fin copper cooler baseplate directly interfacing SiC substrate.',

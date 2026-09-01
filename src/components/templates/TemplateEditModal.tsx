@@ -3,7 +3,6 @@ import {
   Plus,
   Trash2,
   Layers,
-  Scale,
   Clock,
   Briefcase,
   Check,
@@ -43,7 +42,12 @@ export const TemplateEditModal: React.FC<TemplateEditModalProps> = ({
       setArchetype(templateToEdit.archetype);
       setCategory(templateToEdit.category);
       setDescription(templateToEdit.description);
-      setNodes(templateToEdit.nodes.map((n) => ({ ...n })));
+      setNodes(
+        templateToEdit.nodes.map((n) => ({
+          ...n,
+          normHours: typeof n.normHours === 'number' ? n.normHours : n.weight || 8,
+        }))
+      );
     } else {
       setName('');
       setCode(`TMPL-${Math.floor(1000 + Math.random() * 9000)}`);
@@ -60,7 +64,8 @@ export const TemplateEditModal: React.FC<TemplateEditModalProps> = ({
           defaultDurationDays: 30,
           defaultBatchQuantity: 1,
           unit: 'units',
-          weight: 1,
+          normHours: 50,
+          weight: 50,
           orderIndex: 0,
           suggestedRole: 'Chief Battery Architect',
         },
@@ -88,7 +93,8 @@ export const TemplateEditModal: React.FC<TemplateEditModalProps> = ({
       defaultDurationDays: 14,
       defaultBatchQuantity: 1,
       unit: 'pcs',
-      weight: 1,
+      normHours: 8,
+      weight: 8,
       orderIndex: nodes.length,
       suggestedRole: 'Lead Automation Engineer',
     };
@@ -97,8 +103,7 @@ export const TemplateEditModal: React.FC<TemplateEditModalProps> = ({
   };
 
   const handleDeleteNode = (id: string) => {
-    if (nodes.length <= 1) return; // Keep root
-    // Remove node and children
+    if (nodes.length <= 1) return;
     const toDelete = new Set<string>();
     toDelete.add(id);
 
@@ -139,6 +144,8 @@ export const TemplateEditModal: React.FC<TemplateEditModalProps> = ({
     onSave(updatedTemplate);
     onClose();
   };
+
+  const totalTemplateHours = nodes.reduce((acc, curr) => acc + (curr.normHours || 0), 0);
 
   return (
     <Modal
@@ -221,8 +228,11 @@ export const TemplateEditModal: React.FC<TemplateEditModalProps> = ({
         {/* Component Hierarchy Editor */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Template Component Blueprint ({nodes.length} Nodes)
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+              <span>Template Component Blueprint ({nodes.length} Nodes)</span>
+              <span className="text-sky-300 font-mono font-bold bg-sky-500/20 px-2 py-0.5 rounded-lg border border-sky-500/30">
+                Total ~{totalTemplateHours} {t('norm_hours_unit')}
+              </span>
             </h4>
 
             <button
@@ -243,9 +253,7 @@ export const TemplateEditModal: React.FC<TemplateEditModalProps> = ({
               return (
                 <div
                   key={node.id}
-                  className={`p-3 rounded-2xl bg-white/10 dark:bg-slate-800/50 border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
-                    node.level > 1 ? `ml-${Math.min(8, (node.level - 1) * 2)}` : ''
-                  }`}
+                  className={`p-3 rounded-2xl bg-white/10 dark:bg-slate-800/50 border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3`}
                 >
                   <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${levelConf.badgeBg}`}>
@@ -269,32 +277,39 @@ export const TemplateEditModal: React.FC<TemplateEditModalProps> = ({
                     />
                   </div>
 
-                  {/* Weights & Durations */}
+                  {/* Norm-Hours & Durations */}
                   <div className="flex items-center gap-2 shrink-0">
-                    {/* Weight */}
+                    {/* Norm-Hours */}
                     <div className="flex items-center gap-1 bg-black/30 px-2 py-1 rounded-lg border border-white/10 text-[11px] text-slate-300">
-                      <Scale className="w-3 h-3 text-indigo-400" />
-                      <span>{t('weight')}:</span>
+                      <Clock className="w-3 h-3 text-sky-400" />
+                      <span>{t('norm_hours_short')}:</span>
                       <input
                         type="number"
-                        min="1"
-                        max="20"
-                        value={node.weight}
-                        onChange={(e) => handleUpdateNode(node.id, { weight: Number(e.target.value) || 1 })}
-                        className="w-10 bg-transparent text-center font-bold text-indigo-300 outline-none"
+                        min="0.5"
+                        step="0.5"
+                        value={node.normHours}
+                        onChange={(e) =>
+                          handleUpdateNode(node.id, {
+                            normHours: Number(e.target.value) || 1,
+                            weight: Number(e.target.value) || 1,
+                          })
+                        }
+                        className="w-12 bg-transparent text-center font-bold text-sky-300 outline-none"
                       />
                     </div>
 
                     {/* Duration in Days */}
                     <div className="flex items-center gap-1 bg-black/30 px-2 py-1 rounded-lg border border-white/10 text-[11px] text-slate-300">
-                      <Clock className="w-3 h-3 text-sky-400" />
+                      <Clock className="w-3 h-3 text-indigo-400" />
                       <span>Days:</span>
                       <input
                         type="number"
                         min="1"
                         value={node.defaultDurationDays}
-                        onChange={(e) => handleUpdateNode(node.id, { defaultDurationDays: Number(e.target.value) || 1 })}
-                        className="w-10 bg-transparent text-center font-bold text-sky-300 outline-none"
+                        onChange={(e) =>
+                          handleUpdateNode(node.id, { defaultDurationDays: Number(e.target.value) || 1 })
+                        }
+                        className="w-10 bg-transparent text-center font-bold text-indigo-300 outline-none"
                       />
                     </div>
 

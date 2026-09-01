@@ -29,7 +29,8 @@ export interface BOMNode {
   batchQuantity: number;
   unit: string;
   notes?: string;
-  weight: number; // relative weight for rollups, default 1
+  normHours: number; // Labor Intensity in Norm-Hours (нормо-години)
+  weight?: number; // Backward compatibility alias
   orderIndex: number;
   children?: BOMNode[];
 }
@@ -82,7 +83,8 @@ export interface TemplateNode {
   defaultDurationDays: number;
   defaultBatchQuantity: number;
   unit: string;
-  weight: number;
+  normHours: number; // Labor intensity in hours
+  weight?: number;
   notes?: string;
   image?: string;
   orderIndex: number;

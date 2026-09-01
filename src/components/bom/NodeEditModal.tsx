@@ -6,7 +6,9 @@ import {
   Layers,
   Users,
   Check,
-  Scale,
+  Clock,
+  Lock,
+  Info,
 } from 'lucide-react';
 import { BOMNode, NodeLevel, NodeStatus, Assignee } from '../../types';
 import { useI18n } from '../../locales';
@@ -21,6 +23,7 @@ interface NodeEditModalProps {
   nodeToEdit: BOMNode | null;
   parentNode: BOMNode | null;
   projectId: string;
+  hasChildren?: boolean;
   onSave: (node: BOMNode) => void;
 }
 
@@ -30,6 +33,7 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
   nodeToEdit,
   parentNode,
   projectId,
+  hasChildren = false,
   onSave,
 }) => {
   const { t } = useI18n();
@@ -49,10 +53,13 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
   const [dueDate, setDueDate] = useState(new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0]);
   const [batchQuantity, setBatchQuantity] = useState(1);
   const [unit, setUnit] = useState('pcs');
-  const [weight, setWeight] = useState(1);
+  const [normHours, setNormHours] = useState<number>(8);
   const [notes, setNotes] = useState('');
   const [image, setImage] = useState<string | undefined>(undefined);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Is this node locked for direct progress/hours editing?
+  const isParentNode = Boolean(nodeToEdit && hasChildren);
 
   // Load team members from database
   useEffect(() => {
@@ -79,18 +86,23 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
       setProgress(nodeToEdit.progress);
       setStatus(nodeToEdit.status);
 
-      const currentAssignees = nodeToEdit.assignees && nodeToEdit.assignees.length > 0
-        ? nodeToEdit.assignees
-        : nodeToEdit.assignee
-        ? [nodeToEdit.assignee]
-        : [APP_CONFIG.DEFAULT_ASSIGNEES[0]];
+      const currentAssignees =
+        nodeToEdit.assignees && nodeToEdit.assignees.length > 0
+          ? nodeToEdit.assignees
+          : nodeToEdit.assignee
+          ? [nodeToEdit.assignee]
+          : [APP_CONFIG.DEFAULT_ASSIGNEES[0]];
 
       setSelectedAssignees(currentAssignees);
       setStartDate(nodeToEdit.startDate);
       setDueDate(nodeToEdit.dueDate);
       setBatchQuantity(nodeToEdit.batchQuantity);
       setUnit(nodeToEdit.unit);
-      setWeight(nodeToEdit.weight || 1);
+      setNormHours(
+        typeof nodeToEdit.normHours === 'number'
+          ? nodeToEdit.normHours
+          : nodeToEdit.weight || 8
+      );
       setNotes(nodeToEdit.notes || '');
       setImage(nodeToEdit.image);
     } else if (parentNode) {
@@ -101,12 +113,16 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
       setLevel(childLevel);
       setProgress(0);
       setStatus('pending');
-      setSelectedAssignees(parentNode.assignees && parentNode.assignees.length > 0 ? [parentNode.assignees[0]] : [APP_CONFIG.DEFAULT_ASSIGNEES[0]]);
+      setSelectedAssignees(
+        parentNode.assignees && parentNode.assignees.length > 0
+          ? [parentNode.assignees[0]]
+          : [APP_CONFIG.DEFAULT_ASSIGNEES[0]]
+      );
       setStartDate(parentNode.startDate);
       setDueDate(parentNode.dueDate);
       setBatchQuantity(1);
       setUnit('pcs');
-      setWeight(1);
+      setNormHours(8);
       setNotes('');
       setImage(undefined);
     } else {
@@ -121,7 +137,7 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
       setDueDate(new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0]);
       setBatchQuantity(1);
       setUnit('units');
-      setWeight(1);
+      setNormHours(50);
       setNotes('');
       setImage(undefined);
     }
@@ -132,7 +148,7 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
     setSelectedAssignees((prev) => {
       const exists = prev.some((a) => a.id === member.id);
       if (exists) {
-        if (prev.length === 1) return prev; // keep at least 1
+        if (prev.length === 1) return prev;
         return prev.filter((a) => a.id !== member.id);
       } else {
         return [...prev, member];
@@ -140,7 +156,6 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
     });
   };
 
-  // Image Upload Handler (Base64)
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -167,10 +182,13 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
       return;
     }
 
-    const finalAssignees = selectedAssignees.length > 0 ? selectedAssignees : [APP_CONFIG.DEFAULT_ASSIGNEES[0]];
+    const finalAssignees =
+      selectedAssignees.length > 0 ? selectedAssignees : [APP_CONFIG.DEFAULT_ASSIGNEES[0]];
 
     const updatedNode: BOMNode = {
-      id: nodeToEdit ? nodeToEdit.id : `node-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+      id: nodeToEdit
+        ? nodeToEdit.id
+        : `node-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       projectId,
       parentId: nodeToEdit ? nodeToEdit.parentId : parentNode ? parentNode.id : null,
       title: title.trim(),
@@ -184,7 +202,8 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
       dueDate,
       batchQuantity: Number(batchQuantity) || 1,
       unit: unit.trim() || 'pcs',
-      weight: Number(weight) || 1,
+      normHours: Number(normHours) >= 0 ? Number(normHours) : 1,
+      weight: Number(normHours) >= 0 ? Number(normHours) : 1,
       notes: notes.trim(),
       image,
       orderIndex: nodeToEdit ? nodeToEdit.orderIndex : Date.now(),
@@ -199,7 +218,16 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title={nodeToEdit ? t('edit_node') : t('add_child_node')}
-      subtitle={parentNode ? `Parent: ${parentNode.code} — ${parentNode.title}` : undefined}
+      subtitle={
+        parentNode ? (
+          `Parent: ${parentNode.code} — ${parentNode.title}`
+        ) : isParentNode ? (
+          <span className="flex items-center gap-1 text-indigo-300">
+            <Info className="w-3.5 h-3.5" />
+            {t('rollup_notice')}
+          </span>
+        ) : undefined
+      }
       size="xl"
       footer={
         <>
@@ -270,20 +298,30 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
             </div>
           </div>
 
-          {/* Progress Slider */}
-          <div>
+          {/* Progress Slider (Locked if has children) */}
+          <div className={`p-3 rounded-2xl border ${isParentNode ? 'bg-indigo-500/10 border-indigo-500/25' : 'bg-transparent border-transparent p-0'}`}>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                {t('node_progress')}
-              </label>
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  {t('node_progress')}
+                </label>
+                {isParentNode && (
+                  <span className="flex items-center gap-1 text-[10px] font-bold text-indigo-300 bg-indigo-500/20 px-1.5 py-0.2 rounded border border-indigo-500/30">
+                    <Lock className="w-2.5 h-2.5" />
+                    Auto Roll-up
+                  </span>
+                )}
+              </div>
               <span className="text-xs font-bold text-indigo-400 tabular-nums">
                 {progress}%
               </span>
             </div>
+
             <input
               type="range"
               min="0"
               max="100"
+              disabled={isParentNode}
               value={progress}
               onChange={(e) => {
                 const val = Number(e.target.value);
@@ -291,11 +329,22 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
                 if (val === 100) setStatus('completed');
                 else if (val > 0 && status === 'pending') setStatus('in_progress');
               }}
-              className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+              className={`w-full h-2 rounded-lg appearance-none ${
+                isParentNode
+                  ? 'bg-slate-800 opacity-60 cursor-not-allowed'
+                  : 'bg-slate-700 cursor-pointer accent-indigo-500'
+              }`}
             />
+
+            {isParentNode && (
+              <p className="text-[10px] text-indigo-300/80 mt-1.5 leading-tight flex items-center gap-1">
+                <Info className="w-3 h-3 shrink-0" />
+                <span>{t('progress_locked_hint')}</span>
+              </p>
+            )}
           </div>
 
-          {/* Status & Roll-up Weight */}
+          {/* Status & Norm-Hours (Locked if has children) */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
@@ -315,18 +364,43 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1">
-                <Scale className="w-3 h-3 text-indigo-400" />
-                <span>{t('weight')}</span>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
+                <span className="flex items-center gap-1">
+                  <Clock className="w-3 h-3 text-sky-400" />
+                  <span>{t('norm_hours_short')}</span>
+                </span>
+                {isParentNode && (
+                  <span className="text-[9px] font-bold text-sky-300 flex items-center gap-0.5">
+                    <Lock className="w-2.5 h-2.5" />
+                    Sum
+                  </span>
+                )}
               </label>
-              <input
-                type="number"
-                min="1"
-                max="100"
-                value={weight}
-                onChange={(e) => setWeight(Number(e.target.value))}
-                className="w-full px-3.5 py-2 text-xs rounded-xl bg-white/30 dark:bg-slate-800/60 border border-white/20 dark:border-white/10 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500/50 outline-none"
-              />
+
+              <div className="relative">
+                <input
+                  type="number"
+                  min="0.1"
+                  step="0.5"
+                  disabled={isParentNode}
+                  value={normHours}
+                  onChange={(e) => setNormHours(Number(e.target.value))}
+                  className={`w-full px-3.5 py-2 text-xs rounded-xl border text-slate-900 dark:text-white outline-none ${
+                    isParentNode
+                      ? 'bg-sky-500/15 border-sky-500/30 text-sky-200 cursor-not-allowed font-bold'
+                      : 'bg-white/30 dark:bg-slate-800/60 border-white/20 dark:border-white/10 focus:ring-2 focus:ring-indigo-500/50'
+                  }`}
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-semibold pointer-events-none">
+                  {t('norm_hours_unit')}
+                </span>
+              </div>
+
+              {isParentNode && (
+                <p className="text-[9px] text-sky-300/80 mt-1 leading-tight">
+                  {t('norm_hours_locked_hint')}
+                </p>
+              )}
             </div>
           </div>
 
@@ -337,9 +411,9 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
                 <Users className="w-3.5 h-3.5 text-indigo-400" />
                 <span>{t('node_assignee')} ({selectedAssignees.length})</span>
               </span>
-              <span className="text-[10px] text-slate-400">Click to add/remove</span>
+              <span className="text-[10px] text-slate-400">Click to assign</span>
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto custom-scrollbar p-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-36 overflow-y-auto custom-scrollbar p-1">
               {teamList.map((usr) => {
                 const isSelected = selectedAssignees.some((a) => a.id === usr.id);
                 return (

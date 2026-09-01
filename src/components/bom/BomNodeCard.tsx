@@ -7,8 +7,9 @@ import {
   Trash2,
   Calendar,
   AlertTriangle,
-  Scale,
+  Clock,
   Users,
+  Layers,
 } from 'lucide-react';
 import { BOMNode } from '../../types';
 import { useI18n } from '../../locales';
@@ -45,11 +46,15 @@ export const BomNodeCard: React.FC<BomNodeCardProps> = ({
   const levelConfig =
     APP_CONFIG.LEVELS.find((l) => l.level === node.level) || APP_CONFIG.LEVELS[0];
 
-  const assigneesList = node.assignees && node.assignees.length > 0
-    ? node.assignees
-    : node.assignee
-    ? [node.assignee]
-    : [];
+  const assigneesList =
+    node.assignees && node.assignees.length > 0
+      ? node.assignees
+      : node.assignee
+      ? [node.assignee]
+      : [];
+
+  const normHours = typeof node.normHours === 'number' ? node.normHours : node.weight || 0;
+  const unitHours = t('norm_hours_unit');
 
   // Calculate days remaining to due date
   let isApproachingDeadline = false;
@@ -100,13 +105,21 @@ export const BomNodeCard: React.FC<BomNodeCardProps> = ({
               {node.code}
             </span>
 
-            {/* Rollup Weight tag */}
-            {node.weight && node.weight > 1 && (
-              <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-indigo-500/15 text-indigo-300 flex items-center gap-0.5" title="Rollup weight multiplier">
-                <Scale className="w-2.5 h-2.5" />
-                {node.weight}x
+            {/* Prominent Norm-Hours Badge */}
+            <span
+              className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-300 flex items-center gap-1 shadow-sm"
+              title={
+                hasChildren
+                  ? t('norm_hours_locked_hint')
+                  : `${t('norm_hours')}: ${normHours} ${unitHours}`
+              }
+            >
+              <Clock className="w-3 h-3 text-sky-400" />
+              <span>
+                {hasChildren && <span className="text-[10px] font-normal mr-0.5">∑</span>}
+                {normHours} {unitHours}
               </span>
-            )}
+            </span>
           </div>
 
           {/* Quick Action buttons */}
@@ -177,13 +190,16 @@ export const BomNodeCard: React.FC<BomNodeCardProps> = ({
             <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
               <span>{t('node_progress')}</span>
               {hasChildren && (
-                <span className="text-[9px] px-1.5 py-0.2 rounded bg-indigo-500/15 text-indigo-300 font-mono" title={t('rollup_notice')}>
-                  ∑ Weighted Roll-up
+                <span
+                  className="text-[9px] px-1.5 py-0.2 rounded bg-indigo-500/15 text-indigo-300 font-mono"
+                  title={t('rollup_notice')}
+                >
+                  ∑ Roll-up ({normHours} {unitHours})
                 </span>
               )}
             </span>
             <span className="font-bold tabular-nums text-slate-800 dark:text-slate-200">
-              {node.progress}%
+              ⏱ {normHours} {unitHours} • {node.progress}%
             </span>
           </div>
           <ProgressBar progress={node.progress} status={node.status} size="sm" />
@@ -235,12 +251,12 @@ export const BomNodeCard: React.FC<BomNodeCardProps> = ({
             {isExpanded ? (
               <>
                 <ChevronDown className="w-3.5 h-3.5 text-indigo-400" />
-                <span>{t('collapse_all')} ({childCount} items)</span>
+                <span>{t('collapse_all')} ({childCount} items • {normHours} {unitHours})</span>
               </>
             ) : (
               <>
                 <ChevronRight className="w-3.5 h-3.5 text-indigo-400" />
-                <span>{t('expand_all')} ({childCount} items)</span>
+                <span>{t('expand_all')} ({childCount} items • {normHours} {unitHours})</span>
               </>
             )}
           </button>
