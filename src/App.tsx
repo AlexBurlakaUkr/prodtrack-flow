@@ -29,7 +29,7 @@ import { Navigation } from './components/layout/Navigation';
 import { Background } from './components/layout/Background';
 import { BomTreeView } from './components/bom/BomTreeView';
 import { OrderList } from './components/orders/OrderList';
-import { TemplateManager } from './components/templates/TemplateManager';
+import { TemplateManagerModal } from './components/templates/TemplateManagerModal';
 import { AnalyticsDashboard } from './components/analytics/AnalyticsDashboard';
 import { GanttTimeline } from './components/gantt/GanttTimeline';
 import { DailyCheckInDrawer } from './components/analytics/DailyCheckInDrawer';
@@ -53,7 +53,7 @@ export const App: React.FC = () => {
     );
   });
 
-  // Active Tab
+  // Active Tab (Default: bom)
   const [activeTab, setActiveTab] = useState<ActiveTab>('bom');
 
   // Database Data State
@@ -70,6 +70,7 @@ export const App: React.FC = () => {
 
   // Modals state
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [templatesModalOpen, setTemplatesModalOpen] = useState(false);
   const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [projectToEdit, setProjectToEdit] = useState<Project | null>(null);
   const [dailyCheckinOpen, setDailyCheckinOpen] = useState(false);
@@ -160,6 +161,11 @@ export const App: React.FC = () => {
     }
     await handleSelectProject(DEMO_PROJECT_ID);
     setActiveTab('bom');
+    confetti({
+      particleCount: 80,
+      spread: 70,
+      origin: { y: 0.6 },
+    });
   };
 
   // Save Node & Recalculate Rollups
@@ -298,7 +304,7 @@ export const App: React.FC = () => {
       await saveProjectAsTemplate(activeProject.id, tmplName, tmplCode, activeProject.description);
       const updated = await db.templates.toArray();
       setTemplates(updated);
-      setActiveTab('templates');
+      setTemplatesModalOpen(true);
       confetti({
         particleCount: 50,
         spread: 60,
@@ -331,6 +337,7 @@ export const App: React.FC = () => {
       await loadDatabaseData();
       await handleSelectProject(result.project.id);
       setActiveTab('bom');
+      setTemplatesModalOpen(false);
 
       confetti({
         particleCount: 100,
@@ -354,7 +361,7 @@ export const App: React.FC = () => {
     }
   };
 
-  // Calculate Urgent / Bottleneck Nodes (<= 2 days remaining with < 80% progress)
+  // Calculate Urgent / Bottleneck Nodes
   const urgentNodes = useMemo(() => {
     return nodes.filter((node) => {
       if (node.progress >= APP_CONFIG.PROGRESS_WARNING_THRESHOLD) return false;
@@ -410,31 +417,23 @@ export const App: React.FC = () => {
         }}
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenDailyCheckin={() => setDailyCheckinOpen(true)}
-        onLaunchDemo={handleLaunchDemo}
+        onOpenTemplates={() => setTemplatesModalOpen(true)}
+        templatesCount={templates.length}
         urgentNodesCount={urgentNodes.length}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
       />
 
-      {/* Main Tab Navigation Switcher */}
+      {/* Main Tab Navigation Switcher (BOM, Orders, Analytics, Gantt) */}
       <Navigation
         activeTab={activeTab}
         onTabChange={setActiveTab}
         ordersCount={orders.length}
-        templatesCount={templates.length}
       />
 
       {/* Main Content Modules */}
       <main className="flex-1 pb-16">
-        {activeTab === 'templates' ? (
-          <TemplateManager
-            templates={templates}
-            onSaveTemplate={handleSaveTemplate}
-            onDeleteTemplate={handleDeleteTemplate}
-            onInstantiateTemplate={handleInstantiateTemplate}
-            searchQuery={searchQuery}
-          />
-        ) : activeProject ? (
+        {activeProject ? (
           <>
             {activeTab === 'bom' && (
               <BomTreeView
@@ -509,6 +508,17 @@ export const App: React.FC = () => {
         onDataImported={loadDatabaseData}
         team={team}
         onTeamUpdated={loadDatabaseData}
+        onLaunchDemo={handleLaunchDemo}
+      />
+
+      <TemplateManagerModal
+        isOpen={templatesModalOpen}
+        onClose={() => setTemplatesModalOpen(false)}
+        templates={templates}
+        onSaveTemplate={handleSaveTemplate}
+        onDeleteTemplate={handleDeleteTemplate}
+        onInstantiateTemplate={handleInstantiateTemplate}
+        searchQuery={searchQuery}
       />
 
       <ProjectModal

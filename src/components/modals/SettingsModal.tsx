@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Sun,
   Moon,
@@ -17,7 +17,11 @@ import {
   Trash2,
   Mail,
   Briefcase,
-  UserCheck,
+  Play,
+  Layers,
+  BatteryCharging,
+  Clock,
+  Boxes,
 } from 'lucide-react';
 import { ThemeMode, GradientTheme, Language, Assignee } from '../../types';
 import { useI18n } from '../../locales';
@@ -38,6 +42,7 @@ interface SettingsModalProps {
   onDataImported: () => void;
   team: Assignee[];
   onTeamUpdated: () => void;
+  onLaunchDemo: () => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -51,11 +56,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onDataImported,
   team,
   onTeamUpdated,
+  onLaunchDemo,
 }) => {
   const { t, language, setLanguage } = useI18n();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [activeTab, setActiveTab] = useState<'appearance' | 'team' | 'storage'>('appearance');
+  const [activeTab, setActiveTab] = useState<'appearance' | 'team' | 'demo' | 'storage'>('appearance');
   const [importStatus, setImportStatus] = useState<string | null>(null);
 
   // Team Member Form State
@@ -172,7 +178,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title={t('settings_title')}
-      subtitle="Customize visual aesthetics, team rosters, localization and manage local database backups"
+      subtitle="Customize visual aesthetics, team rosters, demo showcase and database management"
       size="xl"
       footer={
         <button
@@ -185,10 +191,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     >
       <div className="space-y-5">
         {/* Navigation Sub-Tabs */}
-        <div className="flex items-center gap-2 p-1 rounded-2xl bg-white/10 dark:bg-slate-800/40 border border-white/10">
+        <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-white/10 dark:bg-slate-800/40 border border-white/10">
           <button
             onClick={() => setActiveTab('appearance')}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+            className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
               activeTab === 'appearance'
                 ? 'bg-indigo-600 text-white shadow-sm'
                 : 'text-slate-400 hover:text-white'
@@ -200,7 +206,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
           <button
             onClick={() => setActiveTab('team')}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+            className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
               activeTab === 'team'
                 ? 'bg-indigo-600 text-white shadow-sm'
                 : 'text-slate-400 hover:text-white'
@@ -211,8 +217,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </button>
 
           <button
+            onClick={() => setActiveTab('demo')}
+            className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              activeTab === 'demo'
+                ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-sm'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Play className="w-3.5 h-3.5 text-amber-300" />
+            <span>{t('tab_demo')}</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('storage')}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+            className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
               activeTab === 'storage'
                 ? 'bg-indigo-600 text-white shadow-sm'
                 : 'text-slate-400 hover:text-white'
@@ -351,7 +369,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </button>
             </div>
 
-            {/* Member Editor Form (Inline Drawer) */}
+            {/* Member Editor Form */}
             {isMemberFormOpen && (
               <div className="p-4 rounded-2xl bg-white/15 dark:bg-slate-800/60 border border-indigo-500/30 space-y-3 animate-scaleIn">
                 <h5 className="text-xs font-bold text-indigo-300">
@@ -492,7 +510,68 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
         )}
 
-        {/* Tab 3: Data & Storage */}
+        {/* Tab 3: Demo Mode Showcase */}
+        {activeTab === 'demo' && (
+          <div className="space-y-4 animate-fadeIn">
+            <div className="p-5 rounded-3xl bg-gradient-to-br from-amber-500/15 via-indigo-500/10 to-purple-500/15 border border-amber-500/30 space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shadow-inner">
+                    <BatteryCharging className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-extrabold text-white">
+                      {t('demo_mode_title')}
+                    </h4>
+                    <span className="text-[10px] font-mono text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-md border border-amber-500/30">
+                      TSLA-M3-82KWH-BP
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-300 leading-relaxed">
+                {t('demo_mode_desc')}
+              </p>
+
+              {/* Demo Architecture Metrics */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-white/10 text-center">
+                <div className="p-2.5 rounded-xl bg-black/30 border border-white/10">
+                  <div className="text-[10px] text-slate-400 font-semibold">Hierarchy</div>
+                  <div className="text-sm font-bold text-white mt-0.5">5 Levels</div>
+                </div>
+                <div className="p-2.5 rounded-xl bg-black/30 border border-white/10">
+                  <div className="text-[10px] text-slate-400 font-semibold">Labor Norm-Hours</div>
+                  <div className="text-sm font-bold text-sky-400 mt-0.5">175 hours</div>
+                </div>
+                <div className="p-2.5 rounded-xl bg-black/30 border border-white/10">
+                  <div className="text-[10px] text-slate-400 font-semibold">Orders / Batches</div>
+                  <div className="text-sm font-bold text-indigo-400 mt-0.5">3 Active</div>
+                </div>
+                <div className="p-2.5 rounded-xl bg-black/30 border border-white/10">
+                  <div className="text-[10px] text-slate-400 font-semibold">Specialists</div>
+                  <div className="text-sm font-bold text-amber-300 mt-0.5">5 Assigned</div>
+                </div>
+              </div>
+
+              {/* Launch Demo Button */}
+              <div className="pt-2">
+                <button
+                  onClick={() => {
+                    onLaunchDemo();
+                    onClose();
+                  }}
+                  className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-600 hover:to-amber-800 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 border border-amber-400/40 transition-all hover:scale-[1.02]"
+                >
+                  <Play className="w-4 h-4 fill-white" />
+                  <span>{t('launch_demo_button')}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 4: Data & Storage */}
         {activeTab === 'storage' && (
           <div className="space-y-5 animate-fadeIn">
             <div className="space-y-3">

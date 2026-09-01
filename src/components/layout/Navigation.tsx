@@ -1,5 +1,5 @@
 import React from 'react';
-import { Network, Package, BarChart3, CalendarRange, Sparkles } from 'lucide-react';
+import { Network, Package, BarChart3, CalendarRange } from 'lucide-react';
 import { ActiveTab } from '../../types';
 import { useI18n } from '../../locales';
 import { GlassCard } from '../ui/GlassCard';
@@ -8,21 +8,18 @@ interface NavigationProps {
   activeTab: ActiveTab;
   onTabChange: (tab: ActiveTab) => void;
   ordersCount?: number;
-  templatesCount?: number;
 }
 
 export const Navigation: React.FC<NavigationProps> = ({
   activeTab,
   onTabChange,
   ordersCount = 0,
-  templatesCount = 0,
 }) => {
   const { t } = useI18n();
 
   const tabs: { id: ActiveTab; labelKey: string; icon: React.FC<{ className?: string }> }[] = [
     { id: 'bom', labelKey: 'tab_bom', icon: Network },
     { id: 'orders', labelKey: 'tab_orders', icon: Package },
-    { id: 'templates', labelKey: 'tab_templates', icon: Sparkles },
     { id: 'analytics', labelKey: 'tab_analytics', icon: BarChart3 },
     { id: 'gantt', labelKey: 'tab_gantt', icon: CalendarRange },
   ];
@@ -52,11 +49,6 @@ export const Navigation: React.FC<NavigationProps> = ({
               {tab.id === 'orders' && ordersCount > 0 && (
                 <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-white/20 text-slate-200">
                   {ordersCount}
-                </span>
-              )}
-              {tab.id === 'templates' && templatesCount > 0 && (
-                <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                  {templatesCount}
                 </span>
               )}
               {isActive && (
