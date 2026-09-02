@@ -290,8 +290,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             }`}
           >
             <div
-              className={`rounded-3xl bg-white/10 dark:bg-slate-800/40 border border-white/10 flex flex-col justify-between ${
-                isFullscreen ? 'p-8 sm:p-10 shadow-glass-glow' : 'p-4'
+              className={`rounded-3xl border flex flex-col justify-between ${
+                isFullscreen
+                  ? 'p-8 sm:p-10 shadow-2xl bg-[#090e1f] border-indigo-500/30'
+                  : 'p-4 bg-white/10 dark:bg-slate-800/40 border-white/10'
               }`}
             >
               <div className={`${isFullscreen ? 'text-sm sm:text-base font-bold text-slate-300' : 'text-xs font-semibold text-slate-400'}`}>
@@ -318,8 +320,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             </div>
 
             <div
-              className={`rounded-3xl bg-white/10 dark:bg-slate-800/40 border border-white/10 flex flex-col justify-between ${
-                isFullscreen ? 'p-8 sm:p-10 shadow-glass-glow' : 'p-4'
+              className={`rounded-3xl border flex flex-col justify-between ${
+                isFullscreen
+                  ? 'p-8 sm:p-10 shadow-2xl bg-[#14080e] border-rose-500/30'
+                  : 'p-4 bg-white/10 dark:bg-slate-800/40 border-white/10'
               }`}
             >
               <div className={`${isFullscreen ? 'text-sm sm:text-base font-bold text-slate-300' : 'text-xs font-semibold text-slate-400'}`}>
@@ -338,8 +342,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             </div>
 
             <div
-              className={`rounded-3xl bg-white/10 dark:bg-slate-800/40 border border-white/10 flex flex-col justify-between ${
-                isFullscreen ? 'p-8 sm:p-10 shadow-glass-glow' : 'p-4'
+              className={`rounded-3xl border flex flex-col justify-between ${
+                isFullscreen
+                  ? 'p-8 sm:p-10 shadow-2xl bg-[#061412] border-emerald-500/30'
+                  : 'p-4 bg-white/10 dark:bg-slate-800/40 border-white/10'
               }`}
             >
               <div className={`${isFullscreen ? 'text-sm sm:text-base font-bold text-slate-300' : 'text-xs font-semibold text-slate-400'}`}>
@@ -358,8 +364,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             </div>
 
             <div
-              className={`rounded-3xl bg-white/10 dark:bg-slate-800/40 border border-white/10 flex flex-col justify-between ${
-                isFullscreen ? 'p-8 sm:p-10 shadow-glass-glow' : 'p-4'
+              className={`rounded-3xl border flex flex-col justify-between ${
+                isFullscreen
+                  ? 'p-8 sm:p-10 shadow-2xl bg-[#08111f] border-sky-500/30'
+                  : 'p-4 bg-white/10 dark:bg-slate-800/40 border-white/10'
               }`}
             >
               <div className={`${isFullscreen ? 'text-sm sm:text-base font-bold text-slate-300' : 'text-xs font-semibold text-slate-400'}`}>
@@ -949,7 +957,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
       {/* True 100vw / 100vh Full-Screen Presentation & Projector Mode */}
       {fullScreenWidget && (
-        <div className="fixed inset-0 z-50 w-screen h-screen bg-slate-950/98 backdrop-blur-3xl p-6 sm:p-10 flex flex-col justify-between overflow-hidden animate-fadeIn">
+        <div className="fixed inset-0 z-50 w-screen h-screen bg-[#020409] p-6 sm:p-10 flex flex-col justify-between overflow-hidden animate-fadeIn">
           {/* Top Presentation Bar */}
           <div className="flex items-center justify-between border-b border-white/15 pb-5 shrink-0">
             <div className="flex items-center gap-4">
