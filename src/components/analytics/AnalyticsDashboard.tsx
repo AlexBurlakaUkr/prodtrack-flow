@@ -21,6 +21,8 @@ import {
   ArrowDownWideNarrow,
   Sparkles,
   X,
+  Tv,
+  Projector,
 } from 'lucide-react';
 import { BOMNode, ProductionOrder, Project, NodeLevel, Assignee } from '../../types';
 import { useI18n } from '../../locales';
@@ -80,6 +82,21 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
   const [widgetDropdownOpen, setWidgetDropdownOpen] = useState(false);
   const [fullScreenWidget, setFullScreenWidget] = useState<AnalyticsWidgetId | null>(null);
+
+  // Live time for projector mode
+  const [currentTime, setCurrentTime] = useState(
+    new Date().toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  );
+
+  useEffect(() => {
+    if (!fullScreenWidget) return;
+    const timer = setInterval(() => {
+      setCurrentTime(
+        new Date().toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      );
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [fullScreenWidget]);
 
   // Granular component progress filters & sorting
   const [componentLevelFilter, setComponentLevelFilter] = useState<'all' | NodeLevel>('all');
@@ -262,60 +279,100 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
     (n) => n.status === 'in_progress' || n.status === 'completed'
   ).length;
 
-  // Render Widget Content helper for both normal and fullscreen modes
+  // Render Widget Content helper for both standard and full-screen presentation modes
   const renderWidgetContent = (id: AnalyticsWidgetId, isFullscreen: boolean = false) => {
     switch (id) {
       case 'kpi_overview':
         return (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="p-4 rounded-2xl bg-white/10 dark:bg-slate-800/40 border border-white/10 flex flex-col justify-between">
-              <div className="text-xs font-semibold text-slate-400">
+          <div
+            className={`grid grid-cols-2 ${
+              isFullscreen ? 'lg:grid-cols-4 gap-6 sm:gap-8 h-full py-4' : 'sm:grid-cols-4 gap-4'
+            }`}
+          >
+            <div
+              className={`rounded-3xl bg-white/10 dark:bg-slate-800/40 border border-white/10 flex flex-col justify-between ${
+                isFullscreen ? 'p-8 sm:p-10 shadow-glass-glow' : 'p-4'
+              }`}
+            >
+              <div className={`${isFullscreen ? 'text-sm sm:text-base font-bold text-slate-300' : 'text-xs font-semibold text-slate-400'}`}>
                 {t('kpi_overall_progress')}
               </div>
-              <div className="flex items-baseline gap-2 mt-2">
-                <span className="text-2xl sm:text-3xl font-extrabold text-indigo-400 tabular-nums">
+              <div className="flex items-baseline gap-3 my-4">
+                <span
+                  className={`font-black text-indigo-400 tabular-nums ${
+                    isFullscreen ? 'text-6xl sm:text-8xl tracking-tight' : 'text-2xl sm:text-3xl font-extrabold'
+                  }`}
+                >
                   {overallBOMProgress}%
                 </span>
-                <span className="text-[11px] text-emerald-400 font-bold flex items-center">
-                  <ArrowUpRight className="w-3 h-3" />
+                <span className={`text-emerald-400 font-bold flex items-center ${isFullscreen ? 'text-sm' : 'text-[11px]'}`}>
+                  <ArrowUpRight className={isFullscreen ? 'w-5 h-5' : 'w-3 h-3'} />
                   Roll-up
                 </span>
               </div>
-              <ProgressBar progress={overallBOMProgress} size="xs" className="mt-2" />
+              <ProgressBar
+                progress={overallBOMProgress}
+                size={isFullscreen ? 'md' : 'xs'}
+                className="mt-2"
+              />
             </div>
 
-            <div className="p-4 rounded-2xl bg-white/10 dark:bg-slate-800/40 border border-white/10 flex flex-col justify-between">
-              <div className="text-xs font-semibold text-slate-400">
+            <div
+              className={`rounded-3xl bg-white/10 dark:bg-slate-800/40 border border-white/10 flex flex-col justify-between ${
+                isFullscreen ? 'p-8 sm:p-10 shadow-glass-glow' : 'p-4'
+              }`}
+            >
+              <div className={`${isFullscreen ? 'text-sm sm:text-base font-bold text-slate-300' : 'text-xs font-semibold text-slate-400'}`}>
                 {t('kpi_delayed_nodes')}
               </div>
-              <div className="text-2xl sm:text-3xl font-extrabold text-rose-400 mt-2">
+              <div
+                className={`font-black text-rose-400 my-4 ${
+                  isFullscreen ? 'text-6xl sm:text-8xl tracking-tight' : 'text-2xl sm:text-3xl font-extrabold'
+                }`}
+              >
                 {bottlenecks.length}
               </div>
-              <div className="text-[11px] text-rose-400 font-semibold mt-1">
+              <div className={`text-rose-400 font-semibold ${isFullscreen ? 'text-sm' : 'text-[11px]'}`}>
                 {totalHoursAtRisk} {t('norm_hours_unit')} under risk
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-white/10 dark:bg-slate-800/40 border border-white/10 flex flex-col justify-between">
-              <div className="text-xs font-semibold text-slate-400">
+            <div
+              className={`rounded-3xl bg-white/10 dark:bg-slate-800/40 border border-white/10 flex flex-col justify-between ${
+                isFullscreen ? 'p-8 sm:p-10 shadow-glass-glow' : 'p-4'
+              }`}
+            >
+              <div className={`${isFullscreen ? 'text-sm sm:text-base font-bold text-slate-300' : 'text-xs font-semibold text-slate-400'}`}>
                 {t('kpi_on_schedule')}
               </div>
-              <div className="text-2xl sm:text-3xl font-extrabold text-emerald-400 mt-2">
+              <div
+                className={`font-black text-emerald-400 my-4 ${
+                  isFullscreen ? 'text-6xl sm:text-8xl tracking-tight' : 'text-2xl sm:text-3xl font-extrabold'
+                }`}
+              >
                 {totalOnSchedule} / {nodes.length}
               </div>
-              <div className="text-[11px] text-slate-400 font-semibold mt-1">
+              <div className={`text-slate-300 font-semibold ${isFullscreen ? 'text-sm' : 'text-[11px]'}`}>
                 {Math.round((totalOnSchedule / Math.max(1, nodes.length)) * 100)}% on track
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-white/10 dark:bg-slate-800/40 border border-white/10 flex flex-col justify-between">
-              <div className="text-xs font-semibold text-slate-400">
+            <div
+              className={`rounded-3xl bg-white/10 dark:bg-slate-800/40 border border-white/10 flex flex-col justify-between ${
+                isFullscreen ? 'p-8 sm:p-10 shadow-glass-glow' : 'p-4'
+              }`}
+            >
+              <div className={`${isFullscreen ? 'text-sm sm:text-base font-bold text-slate-300' : 'text-xs font-semibold text-slate-400'}`}>
                 {t('kpi_completed_parts')}
               </div>
-              <div className="text-2xl sm:text-3xl font-extrabold text-sky-400 mt-2">
+              <div
+                className={`font-black text-sky-400 my-4 ${
+                  isFullscreen ? 'text-6xl sm:text-8xl tracking-tight' : 'text-2xl sm:text-3xl font-extrabold'
+                }`}
+              >
                 {totalCompletedNodes} / {nodes.length}
               </div>
-              <div className="text-[11px] text-sky-300 font-semibold mt-1">
+              <div className={`text-sky-300 font-semibold ${isFullscreen ? 'text-sm' : 'text-[11px]'}`}>
                 {Math.round((totalCompletedNodes / Math.max(1, nodes.length)) * 100)}% 100% completed
               </div>
             </div>
@@ -324,37 +381,39 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
       case 'progress_by_level':
         return (
-          <div className="space-y-4 pt-1">
+          <div className={`space-y-4 pt-1 ${isFullscreen ? 'max-w-6xl mx-auto w-full py-6 space-y-6' : ''}`}>
             {levelStats.map((item) => (
               <div
                 key={item.level}
-                className="p-3.5 rounded-xl bg-white/10 dark:bg-slate-800/30 border border-white/10 space-y-2"
+                className={`rounded-2xl bg-white/10 dark:bg-slate-800/30 border border-white/10 space-y-3 transition-all ${
+                  isFullscreen ? 'p-6 sm:p-8 hover:border-indigo-400/50' : 'p-3.5'
+                }`}
               >
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
                     <span
-                      className="w-2.5 h-2.5 rounded-full"
+                      className={`rounded-full ${isFullscreen ? 'w-4 h-4' : 'w-2.5 h-2.5'}`}
                       style={{ backgroundColor: item.color }}
                     />
-                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                    <span className={`font-extrabold text-slate-800 dark:text-slate-100 ${isFullscreen ? 'text-lg sm:text-xl' : 'text-xs'}`}>
                       L{item.level}: {t(item.nameKey as any)}
                     </span>
-                    <span className="text-[11px] text-slate-400">
+                    <span className={`text-slate-400 ${isFullscreen ? 'text-sm font-semibold' : 'text-[11px]'}`}>
                       ({item.count} items • {item.totalHours} {t('norm_hours_unit')})
                     </span>
                   </div>
 
-                  <span className="font-mono font-bold text-slate-900 dark:text-white tabular-nums">
+                  <span className={`font-mono font-black text-slate-900 dark:text-white tabular-nums ${isFullscreen ? 'text-2xl sm:text-3xl text-indigo-400' : 'text-xs font-bold'}`}>
                     {item.avgProgress}%
                   </span>
                 </div>
 
-                <ProgressBar progress={item.avgProgress} size="sm" />
+                <ProgressBar progress={item.avgProgress} size={isFullscreen ? 'md' : 'sm'} />
 
-                <div className="flex items-center justify-between text-[11px] text-slate-400 pt-0.5">
+                <div className={`flex items-center justify-between text-slate-400 pt-1 ${isFullscreen ? 'text-sm font-semibold' : 'text-[11px]'}`}>
                   <span>{item.completedCount} completed</span>
                   {item.delayedCount > 0 && (
-                    <span className="text-rose-400 font-semibold">
+                    <span className="text-rose-400 font-bold">
                       {item.delayedCount} delayed
                     </span>
                   )}
@@ -368,62 +427,71 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
         return (
           <div
             className={`space-y-3 flex-1 overflow-y-auto custom-scrollbar pt-1 ${
-              isFullscreen ? 'max-h-[70vh]' : 'max-h-[420px]'
+              isFullscreen
+                ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 p-2 space-y-0 max-h-[82vh]'
+                : 'max-h-[420px]'
             }`}
           >
             {bottlenecks.length > 0 ? (
               bottlenecks.map(({ node, reason, daysLeft }) => (
                 <div
                   key={node.id}
-                  className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 flex flex-col gap-2 hover:border-rose-500/40 transition-all"
+                  className={`rounded-2xl bg-rose-500/10 border border-rose-500/20 flex flex-col justify-between gap-3 hover:border-rose-500/40 transition-all ${
+                    isFullscreen ? 'p-5 sm:p-6 shadow-lg' : 'p-3.5'
+                  }`}
                 >
-                  <div className="flex items-center justify-between text-xs flex-wrap gap-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-rose-300">
-                        {node.code}
-                      </span>
-                      <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold uppercase border bg-rose-500/20 border-rose-500/30 text-rose-300">
-                        L{node.level}
-                      </span>
-                      {reason === 'delayed' ? (
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-500/30 text-rose-200 border border-rose-500/40">
-                          {t('risk_delayed')}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs flex-wrap gap-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-rose-300">
+                          {node.code}
                         </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/30 text-amber-200 border border-amber-500/40">
-                          {t('risk_approaching_deadline', { days: daysLeft || 0 })}
+                        <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold uppercase border bg-rose-500/20 border-rose-500/30 text-rose-300">
+                          L{node.level}
                         </span>
-                      )}
+                        {reason === 'delayed' ? (
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-500/30 text-rose-200 border border-rose-500/40">
+                            {t('risk_delayed')}
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/30 text-amber-200 border border-amber-500/40">
+                            {t('risk_approaching_deadline', { days: daysLeft || 0 })}
+                          </span>
+                        )}
+                      </div>
+
+                      <span className="font-mono font-bold text-sky-300 text-xs sm:text-sm">
+                        ⏱ {node.normHours} {t('norm_hours_unit')}
+                      </span>
                     </div>
 
-                    <span className="font-mono font-bold text-sky-300 text-[11px]">
-                      ⏱ {node.normHours} {t('norm_hours_unit')}
-                    </span>
+                    <div className={`font-bold text-slate-900 dark:text-white ${isFullscreen ? 'text-base' : 'text-xs'}`}>
+                      {node.title}
+                    </div>
+
+                    {node.notes && (
+                      <p className={`text-slate-400 line-clamp-2 ${isFullscreen ? 'text-xs' : 'text-[11px]'}`}>
+                        {node.notes}
+                      </p>
+                    )}
                   </div>
 
-                  <div className="text-xs font-bold text-slate-900 dark:text-white">
-                    {node.title}
-                  </div>
-
-                  {node.notes && (
-                    <p className="text-[11px] text-slate-400 line-clamp-2">
-                      {node.notes}
-                    </p>
-                  )}
-
-                  <div className="flex items-center justify-between pt-1 border-t border-rose-500/20 text-xs">
-                    <Avatar assignee={node.assignee} size="xs" showName={true} />
-                    <span className="font-mono font-bold text-rose-300">
+                  <div className="flex items-center justify-between pt-2 border-t border-rose-500/20 text-xs">
+                    <Avatar assignee={node.assignee} size={isFullscreen ? 'sm' : 'xs'} showName={true} />
+                    <span className={`font-mono font-black text-rose-300 ${isFullscreen ? 'text-base' : 'text-xs'}`}>
                       {node.progress}%
                     </span>
                   </div>
                 </div>
               ))
             ) : (
-              <div className="py-12 text-center my-auto">
-                <CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto mb-2 opacity-80" />
-                <p className="text-xs text-slate-400 max-w-xs mx-auto">
+              <div className="py-20 text-center my-auto col-span-full">
+                <CheckCircle2 className="w-16 h-16 text-emerald-400 mx-auto mb-3 opacity-80" />
+                <h4 className="text-lg font-bold text-white mb-1">
                   {t('no_bottlenecks')}
+                </h4>
+                <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                  All production items are progressing on schedule without critical delays.
                 </p>
               </div>
             )}
@@ -432,37 +500,37 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
       case 'detailed_components':
         return (
-          <div className="space-y-4 pt-1">
+          <div className="space-y-4 pt-1 h-full flex flex-col">
             {/* Filter / Sort Bar inside Panel */}
-            <div className="flex items-center justify-between gap-3 flex-wrap text-xs pb-2 border-b border-white/10">
+            <div className="flex items-center justify-between gap-3 flex-wrap text-xs pb-3 border-b border-white/10 shrink-0">
               {/* Level Filter Pills */}
-              <div className="flex items-center gap-1 flex-wrap">
-                <span className="text-[11px] font-semibold text-slate-400 mr-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-xs font-semibold text-slate-400 mr-1">
                   Level:
                 </span>
                 {(['all', 1, 2, 3, 4, 5] as const).map((lvl) => (
                   <button
                     key={lvl}
                     onClick={() => setComponentLevelFilter(lvl as any)}
-                    className={`px-2 py-0.5 rounded-lg font-bold text-[11px] transition-all ${
+                    className={`px-3 py-1 rounded-xl font-bold text-xs transition-all ${
                       componentLevelFilter === lvl
                         ? 'bg-indigo-600 text-white shadow-sm'
                         : 'bg-white/10 text-slate-400 hover:text-white'
                     }`}
                   >
-                    {lvl === 'all' ? 'All' : `L${lvl}`}
+                    {lvl === 'all' ? 'All Levels' : `L${lvl}`}
                   </button>
                 ))}
               </div>
 
               {/* Sort & Search */}
-              <div className="flex items-center gap-2 flex-wrap ml-auto">
-                <div className="flex items-center gap-1.5 bg-slate-900/80 px-2 py-1 rounded-xl border border-white/10 text-xs">
-                  <ArrowDownWideNarrow className="w-3.5 h-3.5 text-indigo-400" />
+              <div className="flex items-center gap-3 flex-wrap ml-auto">
+                <div className="flex items-center gap-2 bg-slate-900/90 px-3 py-1.5 rounded-xl border border-white/10 text-xs">
+                  <ArrowDownWideNarrow className="w-4 h-4 text-indigo-400" />
                   <select
                     value={componentSort}
                     onChange={(e) => setComponentSort(e.target.value as any)}
-                    className="bg-transparent text-white text-xs outline-none cursor-pointer"
+                    className="bg-transparent text-white text-xs outline-none cursor-pointer font-semibold"
                   >
                     <option value="lowest_progress" className="bg-slate-900">
                       {t('sort_lowest_progress')}
@@ -477,13 +545,13 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                 </div>
 
                 <div className="relative">
-                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
                     value={componentSearch}
                     onChange={(e) => setComponentSearch(e.target.value)}
                     placeholder="Search component..."
-                    className="pl-8 pr-2.5 py-1 text-xs rounded-xl bg-white/10 border border-white/10 text-white outline-none w-36 sm:w-44"
+                    className="pl-9 pr-3 py-1.5 text-xs rounded-xl bg-white/10 border border-white/10 text-white outline-none w-48 sm:w-60"
                   />
                 </div>
               </div>
@@ -491,8 +559,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
             {/* Components Rows List */}
             <div
-              className={`space-y-2.5 overflow-y-auto custom-scrollbar pr-1 ${
-                isFullscreen ? 'max-h-[70vh]' : 'max-h-[480px]'
+              className={`space-y-3 overflow-y-auto custom-scrollbar pr-1 flex-1 ${
+                isFullscreen ? 'max-h-[78vh]' : 'max-h-[480px]'
               }`}
             >
               {sortedDetailedComponents.map((node) => {
@@ -508,11 +576,13 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                 return (
                   <div
                     key={node.id}
-                    className="p-3 rounded-xl bg-white/10 dark:bg-slate-800/40 border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:border-white/20 transition-all"
+                    className={`rounded-2xl bg-white/10 dark:bg-slate-800/40 border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:border-white/20 transition-all ${
+                      isFullscreen ? 'p-4 sm:p-5' : 'p-3'
+                    }`}
                   >
-                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <div className="flex items-center gap-3.5 min-w-0 flex-1">
                       <span
-                        className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase border shrink-0 ${levelConfig.badgeBg}`}
+                        className={`px-2 py-1 rounded-lg text-[10px] font-extrabold uppercase border shrink-0 ${levelConfig.badgeBg}`}
                       >
                         L{node.level}
                       </span>
@@ -521,34 +591,34 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                         <img
                           src={node.image}
                           alt={node.title}
-                          className="w-6 h-6 rounded object-contain bg-white/10 p-0.5 border border-white/10 shrink-0"
+                          className="w-8 h-8 rounded-lg object-contain bg-white/10 p-0.5 border border-white/10 shrink-0"
                         />
                       )}
 
                       <div className="min-w-0">
-                        <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                        <div className={`font-bold text-slate-900 dark:text-white truncate ${isFullscreen ? 'text-sm sm:text-base' : 'text-xs'}`}>
                           {node.title}
                         </div>
-                        <div className="text-[10px] font-mono text-slate-400">
+                        <div className="text-[11px] font-mono text-slate-400">
                           {node.code}
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end shrink-0">
-                      <StatusBadge status={node.status} size="xs" />
+                    <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end shrink-0">
+                      <StatusBadge status={node.status} size={isFullscreen ? 'sm' : 'xs'} />
 
-                      <div className="w-28 sm:w-36 space-y-1">
-                        <div className="flex items-center justify-between text-[10px]">
-                          <span className="font-bold text-slate-200">{node.progress}%</span>
-                          <span className="text-sky-300 font-mono">
+                      <div className={`${isFullscreen ? 'w-44 sm:w-56 space-y-1.5' : 'w-28 sm:w-36 space-y-1'}`}>
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="font-extrabold text-slate-200">{node.progress}%</span>
+                          <span className="text-sky-300 font-mono font-bold">
                             ⏱ {node.normHours} {t('norm_hours_unit')}
                           </span>
                         </div>
-                        <ProgressBar progress={node.progress} status={node.status} size="xs" />
+                        <ProgressBar progress={node.progress} status={node.status} size={isFullscreen ? 'sm' : 'xs'} />
                       </div>
 
-                      <StackedAvatars assignees={assigneesList} size="xs" />
+                      <StackedAvatars assignees={assigneesList} size={isFullscreen ? 'sm' : 'xs'} />
                     </div>
                   </div>
                 );
@@ -560,76 +630,78 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       case 'team_workload':
         return (
           <div
-            className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 pt-1 ${
-              isFullscreen ? 'max-h-[75vh] overflow-y-auto custom-scrollbar p-1' : ''
+            className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5 pt-1 ${
+              isFullscreen ? 'max-h-[82vh] overflow-y-auto custom-scrollbar p-1' : ''
             }`}
           >
             {assigneeStats.map((item) => {
-              const isExpanded = expandedWorkloads.has(item.assignee.id);
+              const isExpanded = isFullscreen ? true : expandedWorkloads.has(item.assignee.id);
               const visibleTasks = isExpanded ? item.tasks : item.tasks.slice(0, 2);
 
               return (
                 <div
                   key={item.assignee.id}
-                  className="p-4 rounded-2xl bg-white/10 dark:bg-slate-800/30 border border-white/10 flex flex-col justify-between gap-3 hover:border-white/20 transition-all"
+                  className={`rounded-2xl bg-white/10 dark:bg-slate-800/30 border border-white/10 flex flex-col justify-between gap-4 hover:border-white/20 transition-all ${
+                    isFullscreen ? 'p-5 sm:p-6' : 'p-4'
+                  }`}
                 >
-                  <div className="flex items-center gap-2.5">
-                    <Avatar assignee={item.assignee} size="md" />
+                  <div className="flex items-center gap-3">
+                    <Avatar assignee={item.assignee} size={isFullscreen ? 'lg' : 'md'} />
                     <div className="min-w-0">
-                      <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                      <div className={`font-bold text-slate-900 dark:text-white truncate ${isFullscreen ? 'text-sm sm:text-base' : 'text-xs'}`}>
                         {item.assignee.name}
                       </div>
-                      <div className="text-[10px] text-slate-400 truncate">
+                      <div className={`text-slate-400 truncate ${isFullscreen ? 'text-xs' : 'text-[10px]'}`}>
                         {item.assignee.role}
                       </div>
                     </div>
                   </div>
 
                   {/* Summary Metric */}
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between text-[11px] text-slate-400">
+                  <div className="space-y-2">
+                    <div className={`flex items-center justify-between text-slate-400 ${isFullscreen ? 'text-xs font-semibold' : 'text-[11px]'}`}>
                       <span>{t('total_assigned')}</span>
                       <span className="font-bold text-slate-200">
                         {item.count} items ({item.totalHours} {t('norm_hours_unit')})
                       </span>
                     </div>
-                    <div className="flex items-center justify-between text-[11px] text-slate-400">
+                    <div className={`flex items-center justify-between text-slate-400 ${isFullscreen ? 'text-xs font-semibold' : 'text-[11px]'}`}>
                       <span>{t('avg_progress')}</span>
-                      <span className="font-bold text-indigo-400">{item.avgProgress}%</span>
+                      <span className="font-extrabold text-indigo-400">{item.avgProgress}%</span>
                     </div>
-                    <ProgressBar progress={item.avgProgress} size="xs" />
+                    <ProgressBar progress={item.avgProgress} size={isFullscreen ? 'sm' : 'xs'} />
                   </div>
 
                   {/* Tasks List Breakdown */}
                   {item.tasks.length > 0 && (
-                    <div className="space-y-1.5 pt-2 border-t border-white/10">
+                    <div className="space-y-2 pt-3 border-t border-white/10">
                       <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                         Assigned Tasks ({item.tasks.length})
                       </div>
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
                         {visibleTasks.map((task) => (
                           <div
                             key={task.id}
-                            className="p-2 rounded-lg bg-black/20 border border-white/5 space-y-1"
+                            className="p-2.5 rounded-xl bg-black/25 border border-white/5 space-y-1.5"
                           >
-                            <div className="flex items-center justify-between text-[10px]">
-                              <span className="font-bold text-white truncate max-w-[130px]">
+                            <div className="flex items-center justify-between text-[11px]">
+                              <span className="font-bold text-white truncate max-w-[140px]">
                                 {task.title}
                               </span>
-                              <span className="font-mono text-sky-300 shrink-0">
+                              <span className="font-mono text-sky-300 font-bold shrink-0">
                                 ⏱ {task.normHours}h
                               </span>
                             </div>
-                            <div className="flex items-center justify-between text-[9px] text-slate-400">
-                              <span>L{task.level}</span>
-                              <span className="font-bold text-slate-300">{task.progress}%</span>
+                            <div className="flex items-center justify-between text-[10px] text-slate-400">
+                              <span className="font-semibold">L{task.level}</span>
+                              <span className="font-bold text-slate-200">{task.progress}%</span>
                             </div>
                             <ProgressBar progress={task.progress} status={task.status} size="xs" />
                           </div>
                         ))}
                       </div>
 
-                      {item.tasks.length > 2 && (
+                      {!isFullscreen && item.tasks.length > 2 && (
                         <button
                           onClick={() => toggleWorkloadExpand(item.assignee.id)}
                           className="w-full py-1 text-[10px] font-bold text-indigo-400 hover:text-indigo-300 flex items-center justify-center gap-1 transition-colors"
@@ -650,8 +722,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                     </div>
                   )}
 
-                  <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[10px]">
-                    <span className="text-emerald-400 font-semibold">
+                  <div className="pt-2 border-t border-white/5 flex items-center justify-between text-xs">
+                    <span className="text-emerald-400 font-bold">
                       {item.completedCount} done
                     </span>
                     {item.delayedCount > 0 ? (
@@ -875,46 +947,59 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
         </GlassCard>
       )}
 
-      {/* Full-Screen Focus Overlay Modal */}
+      {/* True 100vw / 100vh Full-Screen Presentation & Projector Mode */}
       {fullScreenWidget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8 animate-fadeIn">
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 bg-black/80 backdrop-blur-xl"
-            onClick={() => setFullScreenWidget(null)}
-          />
-
-          <GlassCard
-            variant="elevated"
-            className="w-full max-w-6xl max-h-[90vh] z-10 p-6 flex flex-col gap-4 border-indigo-500/40 shadow-2xl bg-slate-900/95 rounded-3xl overflow-hidden animate-scaleIn"
-          >
-            {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-white/10 pb-4 shrink-0">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-indigo-400" />
-                <h3 className="text-lg font-bold text-white">
-                  {t(
-                    ALL_WIDGETS.find((w) => w.id === fullScreenWidget)?.labelKey as any
-                  )}
-                </h3>
+        <div className="fixed inset-0 z-50 w-screen h-screen bg-slate-950/98 backdrop-blur-3xl p-6 sm:p-10 flex flex-col justify-between overflow-hidden animate-fadeIn">
+          {/* Top Presentation Bar */}
+          <div className="flex items-center justify-between border-b border-white/15 pb-5 shrink-0">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-600 flex items-center justify-center shadow-glass-glow">
+                <Projector className="w-6 h-6 text-white" />
               </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setFullScreenWidget(null)}
-                  className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-all"
-                >
-                  <Minimize2 className="w-3.5 h-3.5" />
-                  <span>{t('fullscreen_minimize')}</span>
-                </button>
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                    {t(
+                      ALL_WIDGETS.find((w) => w.id === fullScreenWidget)?.labelKey as any
+                    )}
+                  </h2>
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    LIVE PROJECTOR MODE
+                  </span>
+                </div>
+                <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
+                  {project.name} • {project.code} • {new Date().toLocaleDateString('uk-UA')}
+                </p>
               </div>
             </div>
 
-            {/* Modal Body */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
-              {renderWidgetContent(fullScreenWidget, true)}
+            <div className="flex items-center gap-4">
+              <span className="hidden sm:inline-block font-mono text-sm font-bold text-slate-300 px-3 py-1.5 rounded-xl bg-white/10 border border-white/10">
+                {currentTime}
+              </span>
+
+              <button
+                onClick={() => setFullScreenWidget(null)}
+                className="px-5 py-2.5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold flex items-center gap-2 shadow-lg shadow-rose-600/30 transition-all hover:scale-105"
+                title="Exit Fullscreen (Esc)"
+              >
+                <Minimize2 className="w-4 h-4" />
+                <span>{t('fullscreen_minimize')}</span>
+              </button>
             </div>
-          </GlassCard>
+          </div>
+
+          {/* Fullscreen Body: Adaptive View Filling the Entire Screen */}
+          <div className="flex-1 overflow-hidden py-6">
+            {renderWidgetContent(fullScreenWidget, true)}
+          </div>
+
+          {/* Bottom subtle hint */}
+          <div className="flex items-center justify-between text-[11px] text-slate-500 border-t border-white/10 pt-3 shrink-0">
+            <span>ProdTrack Flow Presentation Engine</span>
+            <span>Натисніть [ ESC ] або кнопку згортання для повернення до загального дашборду</span>
+          </div>
         </div>
       )}
     </div>
