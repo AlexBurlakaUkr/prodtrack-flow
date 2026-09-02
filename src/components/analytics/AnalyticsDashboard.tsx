@@ -292,7 +292,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             <div
               className={`rounded-3xl border flex flex-col justify-between ${
                 isFullscreen
-                  ? 'p-8 sm:p-10 shadow-2xl bg-[#090e1f] border-indigo-500/30'
+                  ? 'p-8 sm:p-10 shadow-2xl bg-[#111833] border-indigo-500/30'
                   : 'p-4 bg-white/10 dark:bg-slate-800/40 border-white/10'
               }`}
             >
@@ -322,7 +322,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             <div
               className={`rounded-3xl border flex flex-col justify-between ${
                 isFullscreen
-                  ? 'p-8 sm:p-10 shadow-2xl bg-[#14080e] border-rose-500/30'
+                  ? 'p-8 sm:p-10 shadow-2xl bg-[#211019] border-rose-500/30'
                   : 'p-4 bg-white/10 dark:bg-slate-800/40 border-white/10'
               }`}
             >
@@ -344,7 +344,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             <div
               className={`rounded-3xl border flex flex-col justify-between ${
                 isFullscreen
-                  ? 'p-8 sm:p-10 shadow-2xl bg-[#061412] border-emerald-500/30'
+                  ? 'p-8 sm:p-10 shadow-2xl bg-[#0d2420] border-emerald-500/30'
                   : 'p-4 bg-white/10 dark:bg-slate-800/40 border-white/10'
               }`}
             >
@@ -366,7 +366,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             <div
               className={`rounded-3xl border flex flex-col justify-between ${
                 isFullscreen
-                  ? 'p-8 sm:p-10 shadow-2xl bg-[#08111f] border-sky-500/30'
+                  ? 'p-8 sm:p-10 shadow-2xl bg-[#101e38] border-sky-500/30'
                   : 'p-4 bg-white/10 dark:bg-slate-800/40 border-white/10'
               }`}
             >
@@ -957,7 +957,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
       {/* True 100vw / 100vh Full-Screen Presentation & Projector Mode */}
       {fullScreenWidget && (
-        <div className="fixed inset-0 z-50 w-screen h-screen bg-[#020409] p-6 sm:p-10 flex flex-col justify-between overflow-hidden animate-fadeIn">
+        <div className="fixed inset-0 z-50 w-screen h-screen bg-[#090e1f] p-6 sm:p-10 flex flex-col justify-between overflow-hidden animate-fadeIn">
           {/* Top Presentation Bar */}
           <div className="flex items-center justify-between border-b border-white/15 pb-5 shrink-0">
             <div className="flex items-center gap-4">
