@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Plus,
   Maximize2,
@@ -6,24 +6,28 @@ import {
   ZoomIn,
   ZoomOut,
   Filter,
-  Layers,
-  ChevronRight,
   FolderTree,
   AlertCircle,
   BookmarkPlus,
   AlignCenter,
   Package,
   Sparkles,
-  Building2,
-  Calendar,
+  GitBranch,
+  Network,
+  Table,
+  ListTree,
 } from 'lucide-react';
 import { BOMNode, NodeLevel, NodeStatus, Project, ProductionOrder } from '../../types';
 import { useI18n } from '../../locales';
 import { APP_CONFIG } from '../../config/AppConfig';
 import { BomNodeCard } from './BomNodeCard';
+import { BomHorizontalTree } from './BomHorizontalTree';
+import { BomTreeGrid } from './BomTreeGrid';
 import { NodeEditModal } from './NodeEditModal';
 import { GlassCard } from '../ui/GlassCard';
 import { buildBOMTree, getDescendantNodeIds } from '../../services/rollupCalculator';
+
+export type BomViewMode = 'tree-vertical' | 'tree-horizontal' | 'treegrid';
 
 interface BomTreeViewProps {
   project: Project;
@@ -50,6 +54,15 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
 }) => {
   const { t } = useI18n();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Layout View Mode state with localStorage persistence
+  const [viewMode, setViewMode] = useState<BomViewMode>(() => {
+    return (localStorage.getItem('bom_view_mode') as BomViewMode) || 'tree-vertical';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('bom_view_mode', viewMode);
+  }, [viewMode]);
 
   // Filter nodes for the current scope (Master Blueprint vs Specific Order Instance)
   const scopedNodes = useMemo(() => {
@@ -189,7 +202,7 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
     }
   };
 
-  // Render centered hierarchical tree branches
+  // Render centered hierarchical tree branches (Vertical mode)
   const renderTreeNode = (node: BOMNode, isRoot: boolean = false) => {
     const children = childrenLookup.get(node.id) || [];
     const hasChildren = children.length > 0;
@@ -243,7 +256,6 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
 
             {/* Symmetrical child branches container */}
             <div className="w-fit min-w-full flex flex-row items-start justify-center gap-8 relative pt-2 px-4">
-              {/* Horizontal connecting ribbon across multiple children */}
               {children.length > 1 && (
                 <div className="absolute top-0 left-24 right-24 h-0.5 bg-indigo-500/50 rounded-full" />
               )}
@@ -253,7 +265,6 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
                   key={child.id}
                   className="flex flex-col items-center shrink-0 w-fit relative"
                 >
-                  {/* Top vertical branch stub */}
                   <div className="w-0.5 h-3.5 bg-indigo-500/60 mb-1" />
                   {renderTreeNode(child, false)}
                 </div>
@@ -281,7 +292,12 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
               {activeOrder ? (
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-gradient-to-r from-purple-500/20 to-indigo-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1.5 shadow-sm">
                   <Package className="w-3.5 h-3.5 text-purple-400" />
-                  <span>{t('order_batch_badge', { number: activeOrder.orderNumber, qty: activeOrder.batchQuantity })}</span>
+                  <span>
+                    {t('order_batch_badge', {
+                      number: activeOrder.orderNumber,
+                      qty: activeOrder.batchQuantity,
+                    })}
+                  </span>
                 </span>
               ) : (
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1.5 shadow-sm">
@@ -294,7 +310,9 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
             <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
               {activeOrder ? (
                 <span>
-                  Замовлення для: <strong className="text-slate-200">{activeOrder.customerName}</strong> • Цільовий термін: {activeOrder.targetDate}
+                  Замовлення для:{' '}
+                  <strong className="text-slate-200">{activeOrder.customerName}</strong> •
+                  Цільовий термін: {activeOrder.targetDate}
                 </span>
               ) : (
                 t('bom_canvas_subtitle')
@@ -302,14 +320,53 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
             </p>
           </div>
 
-          {/* Action buttons, Order Scope Switcher & Zoom */}
+          {/* Action buttons, Layout View Switcher, Order Scope Switcher & Zoom */}
           <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto justify-end">
+            {/* View Mode Segmented Switcher (Vertical Tree / Horizontal Tree / TreeGrid) */}
+            <div className="flex items-center bg-white/10 dark:bg-slate-800/60 rounded-xl border border-white/15 p-0.5">
+              <button
+                onClick={() => setViewMode('tree-vertical')}
+                className={`p-1.5 px-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                  viewMode === 'tree-vertical'
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+                title={t('view_mode_tree_vertical')}
+              >
+                <Network className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{t('view_mode_tree_vertical')}</span>
+              </button>
+
+              <button
+                onClick={() => setViewMode('tree-horizontal')}
+                className={`p-1.5 px-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                  viewMode === 'tree-horizontal'
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+                title={t('view_mode_tree_horizontal')}
+              >
+                <GitBranch className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{t('view_mode_tree_horizontal')}</span>
+              </button>
+
+              <button
+                onClick={() => setViewMode('treegrid')}
+                className={`p-1.5 px-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                  viewMode === 'treegrid'
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+                title={t('view_mode_treegrid')}
+              >
+                <Table className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{t('view_mode_treegrid')}</span>
+              </button>
+            </div>
+
             {/* Tree Scope / Order Switcher Dropdown */}
             {onSelectOrderId && (
               <div className="flex items-center gap-1 bg-white/10 dark:bg-slate-800/50 rounded-xl border border-white/15 p-1">
-                <span className="text-[11px] font-semibold text-slate-400 pl-2 hidden sm:inline">
-                  {t('tree_scope_selector')}:
-                </span>
                 <select
                   value={selectedOrderId || 'master'}
                   onChange={(e) =>
@@ -317,12 +374,15 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
                   }
                   className="px-2.5 py-1 text-xs rounded-lg bg-slate-900 border border-white/10 text-white font-semibold outline-none"
                 >
-                  <option value="master">
-                    💎 {t('tree_scope_master')}
-                  </option>
+                  <option value="master">💎 {t('tree_scope_master')}</option>
                   {orders.map((ord) => (
                     <option key={ord.id} value={ord.id}>
-                      📦 {t('tree_scope_order', { number: ord.orderNumber, qty: ord.batchQuantity })} ({ord.customerName})
+                      📦{' '}
+                      {t('tree_scope_order', {
+                        number: ord.orderNumber,
+                        qty: ord.batchQuantity,
+                      })}{' '}
+                      ({ord.customerName})
                     </option>
                   ))}
                 </select>
@@ -336,7 +396,7 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
                 title={t('save_as_template')}
               >
                 <BookmarkPlus className="w-3.5 h-3.5 text-purple-400" />
-                <span>{t('save_as_template')}</span>
+                <span className="hidden sm:inline">{t('save_as_template')}</span>
               </button>
             )}
 
@@ -356,40 +416,42 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
               <span>{t('collapse_all')}</span>
             </button>
 
-            {/* Zoom Controls */}
-            <div className="flex items-center bg-white/10 dark:bg-slate-800/40 rounded-xl border border-white/10 p-0.5">
-              <button
-                onClick={() =>
-                  setZoomScale((prev) => Math.max(0.5, Number((prev - 0.1).toFixed(1))))
-                }
-                className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-all"
-                title={`${t('zoom_out')} (min 50%)`}
-              >
-                <ZoomOut className="w-3.5 h-3.5" />
-              </button>
+            {/* Zoom Controls (Tree modes only) */}
+            {viewMode !== 'treegrid' && (
+              <div className="flex items-center bg-white/10 dark:bg-slate-800/40 rounded-xl border border-white/10 p-0.5">
+                <button
+                  onClick={() =>
+                    setZoomScale((prev) => Math.max(0.5, Number((prev - 0.1).toFixed(1))))
+                  }
+                  className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-all"
+                  title={`${t('zoom_out')} (min 50%)`}
+                >
+                  <ZoomOut className="w-3.5 h-3.5" />
+                </button>
 
-              <span className="text-[10px] font-mono font-bold px-2 text-slate-300 min-w-[42px] text-center">
-                {Math.round(zoomScale * 100)}%
-              </span>
+                <span className="text-[10px] font-mono font-bold px-2 text-slate-300 min-w-[42px] text-center">
+                  {Math.round(zoomScale * 100)}%
+                </span>
 
-              <button
-                onClick={() =>
-                  setZoomScale((prev) => Math.min(1.3, Number((prev + 0.1).toFixed(1))))
-                }
-                className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-all"
-                title={`${t('zoom_in')} (max 130%)`}
-              >
-                <ZoomIn className="w-3.5 h-3.5" />
-              </button>
+                <button
+                  onClick={() =>
+                    setZoomScale((prev) => Math.min(1.3, Number((prev + 0.1).toFixed(1))))
+                  }
+                  className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-all"
+                  title={`${t('zoom_in')} (max 130%)`}
+                >
+                  <ZoomIn className="w-3.5 h-3.5" />
+                </button>
 
-              <button
-                onClick={handleCenterView}
-                className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-all flex items-center gap-1 text-[10px]"
-                title={t('reset_zoom')}
-              >
-                <AlignCenter className="w-3.5 h-3.5" />
-              </button>
-            </div>
+                <button
+                  onClick={handleCenterView}
+                  className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-all flex items-center gap-1 text-[10px]"
+                  title={t('reset_zoom')}
+                >
+                  <AlignCenter className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
 
             {/* Add Root Product Button */}
             <button
@@ -417,7 +479,9 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
           <select
             value={levelFilter}
             onChange={(e) =>
-              setLevelFilter(e.target.value === 'all' ? 'all' : (Number(e.target.value) as NodeLevel))
+              setLevelFilter(
+                e.target.value === 'all' ? 'all' : (Number(e.target.value) as NodeLevel)
+              )
             }
             className="px-3 py-1 text-xs rounded-xl bg-white/20 dark:bg-slate-900/60 border border-white/15 text-slate-800 dark:text-slate-200 outline-none"
           >
@@ -435,7 +499,9 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
           <select
             value={statusFilter}
             onChange={(e) =>
-              setStatusFilter(e.target.value === 'all' ? 'all' : (e.target.value as NodeStatus))
+              setStatusFilter(
+                e.target.value === 'all' ? 'all' : (e.target.value as NodeStatus)
+              )
             }
             className="px-3 py-1 text-xs rounded-xl bg-white/20 dark:bg-slate-900/60 border border-white/15 text-slate-800 dark:text-slate-200 outline-none"
           >
@@ -464,54 +530,116 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
         </div>
       </GlassCard>
 
-      {/* Main Symmetrical Centered Canvas with Pure Transparent Alpha Edge Fade */}
-      <div className="relative w-full overflow-hidden bg-transparent">
-        {/* Scrollable Container with Pure Alpha CSS Mask Fade (No black background overlays) */}
-        <div
-          ref={scrollContainerRef}
-          className="w-full overflow-x-auto custom-scrollbar py-6 px-4 sm:px-12 bg-transparent"
-          style={{
-            WebkitMaskImage:
-              'linear-gradient(to right, transparent 0%, rgba(0,0,0,1) 48px, rgba(0,0,0,1) calc(100% - 48px), transparent 100%)',
-            maskImage:
-              'linear-gradient(to right, transparent 0%, rgba(0,0,0,1) 48px, rgba(0,0,0,1) calc(100% - 48px), transparent 100%)',
-          }}
-        >
-          {treeRoots.length > 0 ? (
-            <div
-              className="min-w-max flex flex-col items-center justify-center transition-all duration-300 origin-top mx-auto"
-              style={{
-                transform: `scale(${zoomScale})`,
-                transformOrigin: 'top center',
-              }}
-            >
-              <div className="w-full flex flex-col items-center space-y-8">
-                {treeRoots.map((root) => renderTreeNode(root, true))}
-              </div>
-            </div>
-          ) : (
-            <GlassCard variant="elevated" className="p-12 text-center max-w-md mx-auto">
-              <AlertCircle className="w-12 h-12 text-indigo-400 mx-auto mb-3 opacity-60" />
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                {t('no_matching_nodes')}
-              </h3>
-              <p className="text-xs text-slate-400 mt-1 mb-4">
-                Try adjusting your search criteria or add new components.
-              </p>
-              <button
-                onClick={() => {
-                  setNodeToEdit(null);
-                  setParentNodeForNew(null);
-                  setEditModalOpen(true);
+      {/* View Mode 1: Vertical Tree View (Default) */}
+      {viewMode === 'tree-vertical' && (
+        <div className="relative w-full overflow-hidden bg-transparent animate-fadeIn">
+          <div
+            ref={scrollContainerRef}
+            className="w-full overflow-x-auto custom-scrollbar py-6 px-4 sm:px-12 bg-transparent"
+            style={{
+              WebkitMaskImage:
+                'linear-gradient(to right, transparent 0%, rgba(0,0,0,1) 48px, rgba(0,0,0,1) calc(100% - 48px), transparent 100%)',
+              maskImage:
+                'linear-gradient(to right, transparent 0%, rgba(0,0,0,1) 48px, rgba(0,0,0,1) calc(100% - 48px), transparent 100%)',
+            }}
+          >
+            {treeRoots.length > 0 ? (
+              <div
+                className="min-w-max flex flex-col items-center justify-center transition-all duration-300 origin-top mx-auto"
+                style={{
+                  transform: `scale(${zoomScale})`,
+                  transformOrigin: 'top center',
                 }}
-                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-lg"
               >
-                {t('add_root_node')}
-              </button>
-            </GlassCard>
-          )}
+                <div className="w-full flex flex-col items-center space-y-8">
+                  {treeRoots.map((root) => renderTreeNode(root, true))}
+                </div>
+              </div>
+            ) : (
+              <GlassCard variant="elevated" className="p-12 text-center max-w-md mx-auto">
+                <AlertCircle className="w-12 h-12 text-indigo-400 mx-auto mb-3 opacity-60" />
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  {t('no_matching_nodes')}
+                </h3>
+                <p className="text-xs text-slate-400 mt-1 mb-4">
+                  Try adjusting your search criteria or add new components.
+                </p>
+                <button
+                  onClick={() => {
+                    setNodeToEdit(null);
+                    setParentNodeForNew(null);
+                    setEditModalOpen(true);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-lg"
+                >
+                  {t('add_root_node')}
+                </button>
+              </GlassCard>
+            )}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* View Mode 2: Horizontal Tree View (Left-to-Right) */}
+      {viewMode === 'tree-horizontal' && (
+        <div className="relative w-full overflow-hidden bg-transparent animate-fadeIn">
+          <div
+            className="w-full overflow-x-auto custom-scrollbar py-6 px-4 sm:px-8 bg-transparent"
+            style={{
+              WebkitMaskImage:
+                'linear-gradient(to right, transparent 0%, rgba(0,0,0,1) 36px, rgba(0,0,0,1) calc(100% - 36px), transparent 100%)',
+              maskImage:
+                'linear-gradient(to right, transparent 0%, rgba(0,0,0,1) 36px, rgba(0,0,0,1) calc(100% - 36px), transparent 100%)',
+            }}
+          >
+            <BomHorizontalTree
+              nodes={scopedNodes}
+              filteredNodes={filteredNodes}
+              expandedNodes={expandedNodes}
+              onToggleExpand={toggleExpand}
+              onAddChild={(parent) => {
+                setParentNodeForNew(parent);
+                setNodeToEdit(null);
+                setEditModalOpen(true);
+              }}
+              onEdit={(item) => {
+                setNodeToEdit(item);
+                setParentNodeForNew(null);
+                setEditModalOpen(true);
+              }}
+              onDelete={(item) => {
+                setDeleteConfirmNode(item);
+              }}
+              zoomScale={zoomScale}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* View Mode 3: Hierarchical TreeGrid Table View */}
+      {viewMode === 'treegrid' && (
+        <div className="w-full animate-fadeIn">
+          <BomTreeGrid
+            nodes={scopedNodes}
+            filteredNodes={filteredNodes}
+            expandedNodes={expandedNodes}
+            onToggleExpand={toggleExpand}
+            onAddChild={(parent) => {
+              setParentNodeForNew(parent);
+              setNodeToEdit(null);
+              setEditModalOpen(true);
+            }}
+            onEdit={(item) => {
+              setNodeToEdit(item);
+              setParentNodeForNew(null);
+              setEditModalOpen(true);
+            }}
+            onDelete={(item) => {
+              setDeleteConfirmNode(item);
+            }}
+          />
+        </div>
+      )}
 
       {/* Node Create / Edit Modal */}
       <NodeEditModal
