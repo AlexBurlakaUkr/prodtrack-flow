@@ -34,6 +34,7 @@ import { Modal } from '../ui/Modal';
 import { Avatar } from '../ui/Avatar';
 import { exportDatabaseToJson, importDatabaseFromJson } from '../../services/exportImport';
 import { db } from '../../services/db';
+import obStudioLogo from '../../assets/LogoOBStudi512x512.png';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -783,7 +784,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <div className="relative inline-block mx-auto">
                 <div className="absolute -inset-1.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-3xl blur-md opacity-60 animate-pulse" />
                 <img
-                  src="/Icon/LogoOBStudi512x512.png"
+                  src={obStudioLogo}
                   alt="OBStudio Logo"
                   className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl object-cover shadow-2xl ring-2 ring-white/30 mx-auto"
                 />

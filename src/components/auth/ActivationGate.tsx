@@ -14,6 +14,7 @@ import confetti from 'canvas-confetti';
 import { useI18n } from '../../locales';
 import { APP_CONFIG } from '../../config/AppConfig';
 import { computeSHA256 } from '../../services/security';
+import obStudioLogo from '../../assets/LogoOBStudi512x512.png';
 
 interface ActivationGateProps {
   onActivate: () => void;
@@ -82,8 +83,12 @@ export const ActivationGate: React.FC<ActivationGateProps> = ({ onActivate }) =>
         {/* Top Logo / Icon with Pulse Glow */}
         <div className="relative inline-block mx-auto">
           <div className="absolute -inset-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-3xl blur-md opacity-60 animate-pulse" />
-          <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-600 flex items-center justify-center shadow-glass-glow mx-auto border border-white/20">
-            <Lock className="w-8 h-8 text-white drop-shadow-md" />
+          <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-slate-900 flex items-center justify-center shadow-glass-glow mx-auto border border-white/20 overflow-hidden">
+            <img
+              src={obStudioLogo}
+              alt="OBStudio Logo"
+              className="w-full h-full object-cover"
+            />
           </div>
         </div>
 
