@@ -17,9 +17,10 @@ export const Navigation: React.FC<NavigationProps> = ({
 }) => {
   const { t } = useI18n();
 
+  // Tab 1: Orders & Batches (Замовлення та партії), Tab 2: Visual BOM Tree (Візуальне дерево BOM)
   const tabs: { id: ActiveTab; labelKey: string; icon: React.FC<{ className?: string }> }[] = [
-    { id: 'bom', labelKey: 'tab_bom', icon: Network },
     { id: 'orders', labelKey: 'tab_orders', icon: Package },
+    { id: 'bom', labelKey: 'tab_bom', icon: Network },
     { id: 'analytics', labelKey: 'tab_analytics', icon: BarChart3 },
     { id: 'gantt', labelKey: 'tab_gantt', icon: CalendarRange },
   ];

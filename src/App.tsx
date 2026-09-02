@@ -55,8 +55,8 @@ export const App: React.FC = () => {
     );
   });
 
-  // Active Tab (Default: bom)
-  const [activeTab, setActiveTab] = useState<ActiveTab>('bom');
+  // Active Tab (Default: orders as 1st tab)
+  const [activeTab, setActiveTab] = useState<ActiveTab>('orders');
 
   // Database Data State
   const [projects, setProjects] = useState<Project[]>([]);

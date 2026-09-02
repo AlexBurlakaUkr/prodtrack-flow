@@ -54,10 +54,13 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
   // Filter nodes for the current scope (Master Blueprint vs Specific Order Instance)
   const scopedNodes = useMemo(() => {
     if (selectedOrderId) {
-      return nodes.filter((n) => n.orderId === selectedOrderId);
+      const ordNodes = nodes.filter((n) => n.orderId === selectedOrderId);
+      if (ordNodes.length > 0) return ordNodes;
     }
-    // Master Blueprint (where orderId is null or undefined)
-    return nodes.filter((n) => !n.orderId);
+    // Master Blueprint (nodes where orderId is null or undefined)
+    const masterNodes = nodes.filter((n) => !n.orderId || n.orderId === null);
+    if (masterNodes.length > 0) return masterNodes;
+    return nodes;
   }, [nodes, selectedOrderId]);
 
   // Active Order object if scoped to an order
@@ -461,21 +464,17 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
         </div>
       </GlassCard>
 
-      {/* Main Symmetrical Centered Canvas with Smooth Edge Fade Masks */}
-      <div className="relative w-full overflow-hidden rounded-3xl">
-        {/* Left & Right Smooth Edge Fade Overlays */}
-        <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-10 sm:w-16 bg-gradient-to-r from-slate-950/80 via-slate-950/30 to-transparent z-20" />
-        <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-10 sm:w-16 bg-gradient-to-l from-slate-950/80 via-slate-950/30 to-transparent z-20" />
-
-        {/* Scrollable Container with CSS Mask Fade */}
+      {/* Main Symmetrical Centered Canvas with Pure Transparent Alpha Edge Fade */}
+      <div className="relative w-full overflow-hidden bg-transparent">
+        {/* Scrollable Container with Pure Alpha CSS Mask Fade (No black background overlays) */}
         <div
           ref={scrollContainerRef}
-          className="w-full overflow-x-auto custom-scrollbar py-6 px-4 sm:px-12"
+          className="w-full overflow-x-auto custom-scrollbar py-6 px-4 sm:px-12 bg-transparent"
           style={{
             WebkitMaskImage:
-              'linear-gradient(to right, transparent 0%, black 40px, black calc(100% - 40px), transparent 100%)',
+              'linear-gradient(to right, transparent 0%, rgba(0,0,0,1) 48px, rgba(0,0,0,1) calc(100% - 48px), transparent 100%)',
             maskImage:
-              'linear-gradient(to right, transparent 0%, black 40px, black calc(100% - 40px), transparent 100%)',
+              'linear-gradient(to right, transparent 0%, rgba(0,0,0,1) 48px, rgba(0,0,0,1) calc(100% - 48px), transparent 100%)',
           }}
         >
           {treeRoots.length > 0 ? (
