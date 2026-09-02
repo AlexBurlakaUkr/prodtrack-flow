@@ -298,6 +298,15 @@ export const en = {
   dev_tagline: 'Modern UI/UX & High-Performance Industrial Desktop Applications',
   dev_contact_btn: 'Contact Developer (Email)',
 
+  // Activation Gate
+  activation_title: 'ProdTrack Flow • Workspace Activation',
+  activation_subtitle: 'Enter administrator master password to authorize this workstation',
+  activation_password_placeholder: 'Enter master password...',
+  activation_button: 'Authorize & Activate Workspace',
+  activation_error: 'Invalid access password. Please try again.',
+  activation_dev_watermark: 'Development & Engineering: OBStudio (obgamestudio@gmail.com)',
+  activation_success: 'Workstation authorized successfully!',
+
   // General UI
   all_levels: 'All Levels',
   all_statuses: 'All Statuses',

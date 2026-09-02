@@ -38,10 +38,16 @@ import { DailyCheckInDrawer } from './components/analytics/DailyCheckInDrawer';
 import { SettingsModal } from './components/modals/SettingsModal';
 import { ProjectModal } from './components/modals/ProjectModal';
 import { FactoryResetDialog } from './components/modals/FactoryResetDialog';
+import { ActivationGate } from './components/auth/ActivationGate';
 import { differenceInDays, parseISO } from 'date-fns';
 
 export const App: React.FC = () => {
   const { t } = useI18n();
+
+  // App Activation Gate State (First-time Master Password Protection)
+  const [isActivated, setIsActivated] = useState<boolean>(() => {
+    return localStorage.getItem('app_is_activated') === 'true';
+  });
 
   // App Theme & Styling State
   const [mode, setMode] = useState<ThemeMode>(() => {
@@ -399,6 +405,16 @@ export const App: React.FC = () => {
       handleSaveNode(updatedNode);
     }
   };
+
+  // If app is not activated on this workstation, block UI and render Master Password Activation Gate
+  if (!isActivated) {
+    return (
+      <div className="min-h-screen text-slate-900 dark:text-slate-100 relative flex flex-col selection:bg-indigo-500/30 selection:text-indigo-200">
+        <Background theme={gradientTheme} mode={mode} />
+        <ActivationGate onActivate={() => setIsActivated(true)} />
+      </div>
+    );
+  }
 
   if (!isDbLoaded) {
     return (

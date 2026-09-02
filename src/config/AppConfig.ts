@@ -8,6 +8,7 @@ import { Assignee } from '../types';
 export const APP_CONFIG = {
   APP_NAME: 'ProdTrack Flow',
   APP_VERSION: '1.1.0',
+  MASTER_PASSWORD: 'OBStudio1620',
   DEFAULT_PROJECT_ID: 'proj-tesla-model3-battery',
   DEFAULT_TEMPLATE_ID: 'tmpl-tesla-model3-battery',
   

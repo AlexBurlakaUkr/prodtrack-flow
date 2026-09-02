@@ -73,6 +73,12 @@
   }
 }
 
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-8px); }
+  40%, 80% { transform: translateX(8px); }
+}
+
 .animate-fadeIn {
   animation: fadeIn 0.2s ease-out forwards;
 }
@@ -84,3 +90,8 @@
 .animate-slideLeft {
   animation: slideLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+.animate-shake {
+  animation: shake 0.4s ease-in-out forwards;
+}
+

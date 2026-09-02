@@ -300,6 +300,15 @@ export const ua: Record<TranslationKey, string> = {
   dev_tagline: 'Розробка сучасних виробничих рішень та високоефективних настільних додатків',
   dev_contact_btn: 'Написати розробнику (Email)',
 
+  // Activation Gate
+  activation_title: 'ProdTrack Flow • Активація робочого простору',
+  activation_subtitle: 'Введіть пароль адміністратора для авторизації робочої станції',
+  activation_password_placeholder: 'Введіть пароль доступу...',
+  activation_button: 'Авторизувати та активувати',
+  activation_error: 'Невірний пароль доступу. Спробуйте ще раз.',
+  activation_dev_watermark: 'Розробка та проєктування: OBStudio (obgamestudio@gmail.com)',
+  activation_success: 'Робочу станцію успішно авторизовано!',
+
   // General UI
   all_levels: 'Всі рівні',
   all_statuses: 'Всі статуси',
