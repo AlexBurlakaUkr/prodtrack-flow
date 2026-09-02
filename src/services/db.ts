@@ -34,9 +34,9 @@ export class ProdTrackDatabase extends Dexie {
 
   constructor() {
     super('ProdTrackFlowDB');
-    this.version(2).stores({
+    this.version(3).stores({
       projects: 'id, code, createdAt, updatedAt',
-      nodes: 'id, projectId, parentId, level, status, dueDate, orderIndex',
+      nodes: 'id, projectId, orderId, parentId, level, status, dueDate, orderIndex',
       orders: 'id, projectId, orderNumber, status, priority, targetDate',
       templates: 'id, code, name, category',
       team: 'id, name, role',
@@ -112,10 +112,172 @@ export async function factoryReset(): Promise<void> {
 }
 
 /**
- * Helper to save node updates and automatically perform roll-up calculation for the project
+ * Create or Update Order and instantiate its dedicated scaled BOM tree clone
+ */
+export async function saveOrderAndInstantiateBOM(
+  order: ProductionOrder,
+  templateId?: string
+): Promise<{ order: ProductionOrder; nodes: BOMNode[] }> {
+  // Check if order already has nodes
+  const existingOrderNodes = await db.nodes.where('orderId').equals(order.id).toArray();
+  
+  if (existingOrderNodes.length > 0) {
+    // If updating existing order batch quantity, adjust scaled hours & quantities
+    const multiplier = Math.max(1, order.batchQuantity);
+    const updatedNodes = existingOrderNodes.map((n) => {
+      const baseH = n.baseNormHours || n.normHours || 1;
+      const scaledH = Math.round(baseH * multiplier * 10) / 10;
+      const baseQ = n.baseBatchQuantity || 1;
+      return {
+        ...n,
+        normHours: scaledH,
+        weight: scaledH,
+        batchQuantity: baseQ * multiplier,
+        dueDate: order.targetDate,
+      };
+    });
+
+    const calculated = recalculateNodeRollups(updatedNodes);
+    await db.transaction('rw', [db.orders, db.nodes], async () => {
+      await db.orders.put(order);
+      await db.nodes.bulkPut(calculated);
+    });
+
+    return { order, nodes: calculated };
+  }
+
+  // Clone from template or master project BOM
+  let baseNodes: {
+    id: string;
+    parentId: string | null;
+    title: string;
+    code: string;
+    level: any;
+    baseNormHours: number;
+    baseBatchQuantity: number;
+    unit: string;
+    notes?: string;
+    image?: string;
+    orderIndex: number;
+    suggestedRole?: string;
+  }[] = [];
+
+  if (templateId) {
+    const tmpl = await db.templates.get(templateId);
+    if (tmpl && tmpl.nodes.length > 0) {
+      baseNodes = tmpl.nodes.map((n) => ({
+        id: n.id,
+        parentId: n.parentId,
+        title: n.title,
+        code: n.code,
+        level: n.level,
+        baseNormHours: n.baseNormHours || n.normHours || 8,
+        baseBatchQuantity: n.defaultBatchQuantity || 1,
+        unit: n.unit || 'pcs',
+        notes: n.notes,
+        image: n.image,
+        orderIndex: n.orderIndex,
+        suggestedRole: n.suggestedRole,
+      }));
+    }
+  }
+
+  // Fallback to project's master BOM nodes (where orderId is null)
+  if (baseNodes.length === 0) {
+    const projectMasterNodes = await db.nodes
+      .where('projectId')
+      .equals(order.projectId)
+      .and((n) => !n.orderId)
+      .toArray();
+
+    baseNodes = projectMasterNodes.map((n) => ({
+      id: n.id,
+      parentId: n.parentId,
+      title: n.title,
+      code: n.code,
+      level: n.level,
+      baseNormHours: n.baseNormHours || n.normHours || 8,
+      baseBatchQuantity: n.baseBatchQuantity || n.batchQuantity || 1,
+      unit: n.unit || 'pcs',
+      notes: n.notes,
+      image: n.image,
+      orderIndex: n.orderIndex,
+      suggestedRole: n.assignees?.[0]?.role,
+    }));
+  }
+
+  const team = await db.team.toArray();
+  const defaultLead = order.assignedLead || team[0] || APP_CONFIG.DEFAULT_ASSIGNEES[0];
+  const multiplier = Math.max(1, order.batchQuantity);
+
+  const idMap = new Map<string, string>();
+  baseNodes.forEach((bn) => {
+    idMap.set(bn.id, `node-${order.id}-${bn.id.replace('node-', '').replace('tmpl-node-', '')}`);
+  });
+
+  const clonedOrderNodes: BOMNode[] = baseNodes.map((bn) => {
+    const newId = idMap.get(bn.id)!;
+    const newParentId = bn.parentId ? idMap.get(bn.parentId) || null : null;
+    const baseH = bn.baseNormHours;
+    const scaledH = Math.round(baseH * multiplier * 10) / 10;
+    const baseQ = bn.baseBatchQuantity;
+    const scaledQ = baseQ * multiplier;
+    const matchedAssignee = team.find((t) => t.role === bn.suggestedRole) || defaultLead;
+
+    return {
+      id: newId,
+      projectId: order.projectId,
+      orderId: order.id,
+      parentId: newParentId,
+      title: bn.title,
+      code: bn.code,
+      level: bn.level,
+      progress: 0,
+      assignees: [matchedAssignee],
+      assignee: matchedAssignee,
+      status: 'pending',
+      startDate: order.startDate,
+      dueDate: order.targetDate,
+      baseBatchQuantity: baseQ,
+      batchQuantity: scaledQ,
+      unit: bn.unit,
+      baseNormHours: baseH,
+      normHours: scaledH,
+      weight: scaledH,
+      orderIndex: bn.orderIndex,
+      notes: bn.notes,
+      image: bn.image,
+    };
+  });
+
+  const calculated = recalculateNodeRollups(clonedOrderNodes);
+
+  await db.transaction('rw', [db.orders, db.nodes], async () => {
+    await db.orders.put(order);
+    await db.nodes.bulkPut(calculated);
+  });
+
+  return { order, nodes: calculated };
+}
+
+/**
+ * Cascading Delete Order: removes order record and all its associated cloned BOM tree nodes
+ */
+export async function deleteOrderCascade(orderId: string): Promise<void> {
+  await db.transaction('rw', [db.orders, db.nodes], async () => {
+    await db.orders.delete(orderId);
+    // Delete all nodes belonging to this order instance
+    const orderNodes = await db.nodes.where('orderId').equals(orderId).toArray();
+    if (orderNodes.length > 0) {
+      await db.nodes.bulkDelete(orderNodes.map((n) => n.id));
+    }
+  });
+}
+
+/**
+ * Helper to save node updates and automatically perform roll-up calculation for the project/order
  */
 export async function saveNodeAndRecalculate(node: BOMNode): Promise<BOMNode[]> {
-  // Normalize multi-assignee field
   const assignees = node.assignees && node.assignees.length > 0
     ? node.assignees
     : node.assignee
@@ -128,30 +290,71 @@ export async function saveNodeAndRecalculate(node: BOMNode): Promise<BOMNode[]> 
     ? node.weight
     : 8;
 
+  const baseH = typeof node.baseNormHours === 'number' && node.baseNormHours >= 0
+    ? node.baseNormHours
+    : rawHours;
+
   const normalizedNode: BOMNode = {
     ...node,
+    orderId: node.orderId || null,
     assignees,
     assignee: assignees[0] || node.assignee,
+    baseNormHours: baseH,
     normHours: rawHours,
     weight: rawHours,
+    baseBatchQuantity: node.baseBatchQuantity || node.batchQuantity || 1,
   };
 
   await db.nodes.put(normalizedNode);
   
-  // Fetch all nodes for this project to recalculate rollups bottom-up
-  const projectNodes = await db.nodes.where('projectId').equals(node.projectId).toArray();
-  const updatedNodes = recalculateNodeRollups(projectNodes);
-  
-  // Persist updated rollups in bulk
+  // Fetch all nodes in the same tree scope (same projectId and same orderId)
+  let treeNodes: BOMNode[] = [];
+  if (node.orderId) {
+    treeNodes = await db.nodes.where('orderId').equals(node.orderId).toArray();
+  } else {
+    treeNodes = await db.nodes
+      .where('projectId')
+      .equals(node.projectId)
+      .and((n) => !n.orderId)
+      .toArray();
+  }
+
+  const updatedNodes = recalculateNodeRollups(treeNodes);
   await db.nodes.bulkPut(updatedNodes);
+
+  // If node belongs to an order, sync order progress with root node progress
+  if (node.orderId) {
+    const rootNode = updatedNodes.find((n) => n.level === 1);
+    if (rootNode) {
+      const ord = await db.orders.get(node.orderId);
+      if (ord) {
+        ord.progress = rootNode.progress;
+        if (rootNode.progress === 100) {
+          ord.status = 'completed';
+          ord.completedUnits = ord.batchQuantity;
+        } else if (rootNode.status === 'delayed') {
+          ord.status = 'urgent_delayed';
+        } else if (rootNode.progress > 0) {
+          ord.status = 'in_progress';
+        }
+        await db.orders.put(ord);
+      }
+    }
+  }
+
   return updatedNodes;
 }
 
 /**
  * Helper to delete a node and all its nested descendants
  */
-export async function deleteNodeCascade(nodeId: string, projectId: string): Promise<BOMNode[]> {
-  const allNodes = await db.nodes.where('projectId').equals(projectId).toArray();
+export async function deleteNodeCascade(nodeId: string, projectId: string, orderId?: string | null): Promise<BOMNode[]> {
+  let allNodes: BOMNode[] = [];
+  if (orderId) {
+    allNodes = await db.nodes.where('orderId').equals(orderId).toArray();
+  } else {
+    allNodes = await db.nodes.where('projectId').equals(projectId).and((n) => !n.orderId).toArray();
+  }
   
   const toDeleteIds = new Set<string>();
   toDeleteIds.add(nodeId);
@@ -166,7 +369,7 @@ export async function deleteNodeCascade(nodeId: string, projectId: string): Prom
 
   await db.nodes.bulkDelete(Array.from(toDeleteIds));
   
-  const remainingNodes = await db.nodes.where('projectId').equals(projectId).toArray();
+  const remainingNodes = allNodes.filter((n) => !toDeleteIds.has(n.id));
   const updatedNodes = recalculateNodeRollups(remainingNodes);
   await db.nodes.bulkPut(updatedNodes);
   return updatedNodes;
@@ -184,7 +387,12 @@ export async function saveProjectAsTemplate(
   const project = await db.projects.get(projectId);
   if (!project) throw new Error(`Project ${projectId} not found`);
 
-  const nodes = await db.nodes.where('projectId').equals(projectId).toArray();
+  // Use base blueprint nodes (orderId == null)
+  const nodes = await db.nodes
+    .where('projectId')
+    .equals(projectId)
+    .and((n) => !n.orderId)
+    .toArray();
   
   const templateId = `tmpl-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
   const idMap = new Map<string, string>();
@@ -194,7 +402,7 @@ export async function saveProjectAsTemplate(
   });
 
   const templateNodes: TemplateNode[] = nodes.map((n) => {
-    const hours = typeof n.normHours === 'number' ? n.normHours : n.weight || 8;
+    const hours = typeof n.baseNormHours === 'number' ? n.baseNormHours : n.normHours || 8;
     return {
       id: idMap.get(n.id)!,
       parentId: n.parentId ? idMap.get(n.parentId) || null : null,
@@ -202,8 +410,9 @@ export async function saveProjectAsTemplate(
       code: n.code,
       level: n.level,
       defaultDurationDays: 14,
-      defaultBatchQuantity: n.batchQuantity,
+      defaultBatchQuantity: n.baseBatchQuantity || 1,
       unit: n.unit,
+      baseNormHours: hours,
       normHours: hours,
       weight: hours,
       notes: n.notes,
@@ -248,7 +457,6 @@ export async function instantiateTemplateToProject(
   const defaultAssignee = team[0] || APP_CONFIG.DEFAULT_ASSIGNEES[0];
 
   const projectId = `proj-${Date.now()}`;
-  const rootTemplateNode = template.nodes.find((n) => n.parentId === null) || template.nodes[0];
   const rootNodeId = `node-${Date.now()}-root`;
 
   const newProject: Project = {
@@ -277,15 +485,17 @@ export async function instantiateTemplateToProject(
 
   const startDate = new Date(startDateStr);
 
-  const instanceNodes: BOMNode[] = template.nodes.map((tn) => {
+  // 1. Create Base Master Blueprint Nodes (orderId: null, 1 unit)
+  const masterNodes: BOMNode[] = template.nodes.map((tn) => {
     const matchedAssignee = team.find((t) => t.role === tn.suggestedRole) || defaultAssignee;
     const durationDays = tn.defaultDurationDays || 14;
     const dueDate = addDays(startDate, durationDays);
-    const hours = typeof tn.normHours === 'number' ? tn.normHours : tn.weight || 8;
+    const baseH = tn.baseNormHours || tn.normHours || 8;
 
     return {
       id: idMap.get(tn.id)!,
       projectId,
+      orderId: null,
       parentId: tn.parentId ? idMap.get(tn.parentId) || null : null,
       title: tn.title,
       code: tn.code,
@@ -296,22 +506,28 @@ export async function instantiateTemplateToProject(
       status: 'pending',
       startDate: startDateStr,
       dueDate: format(dueDate, 'yyyy-MM-dd'),
-      batchQuantity: tn.defaultBatchQuantity * (tn.level === 1 ? batchQuantity : 1),
+      baseBatchQuantity: tn.defaultBatchQuantity || 1,
+      batchQuantity: tn.defaultBatchQuantity || 1,
       unit: tn.unit,
-      normHours: hours,
-      weight: hours,
+      baseNormHours: baseH,
+      normHours: baseH,
+      weight: baseH,
       orderIndex: tn.orderIndex,
       notes: tn.notes,
       image: tn.image,
     };
   });
 
-  const calculatedNodes = recalculateNodeRollups(instanceNodes);
+  const calculatedMaster = recalculateNodeRollups(masterNodes);
 
+  // 2. If customer name specified, create Order and scaled cloned instance
   let newOrder: ProductionOrder | undefined = undefined;
+  let orderClonedNodes: BOMNode[] = [];
+
   if (customerName) {
+    const orderId = `ord-${Date.now()}`;
     newOrder = {
-      id: `ord-${Date.now()}`,
+      id: orderId,
       orderNumber: `ORD-${Math.floor(5000 + Math.random() * 4000)}`,
       projectId,
       title: `Batch Run: ${projectName}`,
@@ -329,15 +545,30 @@ export async function instantiateTemplateToProject(
       assignedTeam: [defaultAssignee],
       templateId: template.id,
     };
+
+    const multiplier = Math.max(1, batchQuantity);
+    orderClonedNodes = calculatedMaster.map((mn) => ({
+      ...mn,
+      id: `node-${orderId}-${mn.id.replace('node-', '')}`,
+      orderId,
+      parentId: mn.parentId ? `node-${orderId}-${mn.parentId.replace('node-', '')}` : null,
+      normHours: Math.round((mn.baseNormHours || mn.normHours) * multiplier * 10) / 10,
+      weight: Math.round((mn.baseNormHours || mn.normHours) * multiplier * 10) / 10,
+      batchQuantity: (mn.baseBatchQuantity || 1) * multiplier,
+      startDate: startDateStr,
+      dueDate: format(addDays(startDate, 30), 'yyyy-MM-dd'),
+    }));
   }
+
+  const allToInsert = [...calculatedMaster, ...recalculateNodeRollups(orderClonedNodes)];
 
   await db.transaction('rw', [db.projects, db.nodes, db.orders], async () => {
     await db.projects.put(newProject);
-    await db.nodes.bulkPut(calculatedNodes);
+    await db.nodes.bulkPut(allToInsert);
     if (newOrder) {
       await db.orders.put(newOrder);
     }
   });
 
-  return { project: newProject, nodes: calculatedNodes, order: newOrder };
+  return { project: newProject, nodes: allToInsert, order: newOrder };
 }

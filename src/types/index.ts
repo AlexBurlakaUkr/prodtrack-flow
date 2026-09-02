@@ -15,6 +15,7 @@ export interface Assignee {
 export interface BOMNode {
   id: string;
   projectId: string;
+  orderId?: string | null; // null for Master Blueprint BOM, or specific Order ID for cloned batch instance
   parentId: string | null;
   title: string;
   code: string;
@@ -26,10 +27,12 @@ export interface BOMNode {
   status: NodeStatus;
   startDate: string; // YYYY-MM-DD
   dueDate: string; // YYYY-MM-DD
-  batchQuantity: number;
+  baseBatchQuantity?: number; // Base quantity for 1 unit
+  batchQuantity: number; // Scaled batch quantity (Base * N)
   unit: string;
   notes?: string;
-  normHours: number; // Labor Intensity in Norm-Hours (нормо-години)
+  baseNormHours?: number; // Base Labor Intensity for 1 unit (нормо-години на 1 виріб)
+  normHours: number; // Scaled Labor Intensity (baseNormHours * N) for this batch
   weight?: number; // Backward compatibility alias
   orderIndex: number;
   children?: BOMNode[];
@@ -83,7 +86,8 @@ export interface TemplateNode {
   defaultDurationDays: number;
   defaultBatchQuantity: number;
   unit: string;
-  normHours: number; // Labor intensity in hours
+  baseNormHours?: number;
+  normHours: number; // Labor intensity in hours for 1 unit
   weight?: number;
   notes?: string;
   image?: string;

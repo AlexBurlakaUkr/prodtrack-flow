@@ -21,6 +21,8 @@ import {
   seedDefaultDemoData,
   saveProjectAsTemplate,
   instantiateTemplateToProject,
+  saveOrderAndInstantiateBOM,
+  deleteOrderCascade,
 } from './services/db';
 import { DEMO_PROJECT_ID } from './services/demoData';
 import { recalculateNodeRollups } from './services/rollupCalculator';
@@ -59,6 +61,7 @@ export const App: React.FC = () => {
   // Database Data State
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeProjectId, setActiveProjectId] = useState<string>(DEMO_PROJECT_ID);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null); // null = Master Blueprint
   const [nodes, setNodes] = useState<BOMNode[]>([]);
   const [orders, setOrders] = useState<ProductionOrder[]>([]);
   const [templates, setTemplates] = useState<ProductTemplate[]>([]);
@@ -143,6 +146,7 @@ export const App: React.FC = () => {
   // Switch Active Project
   const handleSelectProject = async (projectId: string) => {
     setActiveProjectId(projectId);
+    setSelectedOrderId(null); // Reset to Master Blueprint
     await db.settings.put({ key: 'active_project_id', value: projectId });
 
     const projNodes = await db.nodes.where('projectId').equals(projectId).toArray();
@@ -160,6 +164,7 @@ export const App: React.FC = () => {
       await loadDatabaseData();
     }
     await handleSelectProject(DEMO_PROJECT_ID);
+    setSelectedOrderId(null);
     setActiveTab('bom');
     confetti({
       particleCount: 80,
@@ -171,8 +176,9 @@ export const App: React.FC = () => {
   // Save Node & Recalculate Rollups
   const handleSaveNode = async (node: BOMNode) => {
     try {
-      const updatedNodes = await saveNodeAndRecalculate(node);
-      setNodes(updatedNodes);
+      await saveNodeAndRecalculate(node);
+      const allProjNodes = await db.nodes.where('projectId').equals(node.projectId).toArray();
+      setNodes(recalculateNodeRollups(allProjNodes));
 
       if (node.progress === 100) {
         confetti({
@@ -190,46 +196,43 @@ export const App: React.FC = () => {
   const handleDeleteNode = async (nodeId: string) => {
     try {
       if (!activeProject) return;
-      const updatedNodes = await deleteNodeCascade(nodeId, activeProject.id);
-      setNodes(updatedNodes);
+      const targetNode = nodes.find((n) => n.id === nodeId);
+      const updatedNodes = await deleteNodeCascade(
+        nodeId,
+        activeProject.id,
+        targetNode?.orderId || selectedOrderId
+      );
+      const allProjNodes = await db.nodes.where('projectId').equals(activeProject.id).toArray();
+      setNodes(recalculateNodeRollups(allProjNodes));
     } catch (err) {
       console.error('Failed to delete node:', err);
     }
   };
 
-  // Save Order
-  const handleSaveOrder = async (order: ProductionOrder) => {
+  // Save Order with automated BOM cloning and batch-size scaling
+  const handleSaveOrder = async (order: ProductionOrder, templateId?: string) => {
     try {
-      await db.orders.put(order);
-      const updatedOrders = await db.orders
-        .where('projectId')
-        .equals(order.projectId)
-        .toArray();
-      setOrders(updatedOrders);
+      await saveOrderAndInstantiateBOM(order, templateId);
+      await loadDatabaseData();
 
-      if (order.status === 'completed' || order.progress === 100) {
-        confetti({
-          particleCount: 80,
-          spread: 80,
-          origin: { y: 0.6 },
-        });
-      }
+      confetti({
+        particleCount: 80,
+        spread: 80,
+        origin: { y: 0.6 },
+      });
     } catch (err) {
       console.error('Failed to save order:', err);
     }
   };
 
-  // Delete Order
+  // Delete Order and Cascade Order BOM Tree
   const handleDeleteOrder = async (orderId: string) => {
     try {
-      await db.orders.delete(orderId);
-      if (activeProject) {
-        const updatedOrders = await db.orders
-          .where('projectId')
-          .equals(activeProject.id)
-          .toArray();
-        setOrders(updatedOrders);
+      await deleteOrderCascade(orderId);
+      if (selectedOrderId === orderId) {
+        setSelectedOrderId(null);
       }
+      await loadDatabaseData();
     } catch (err) {
       console.error('Failed to delete order:', err);
     }
@@ -240,12 +243,13 @@ export const App: React.FC = () => {
     try {
       await db.projects.put(project);
 
-      // If new project, create an initial root node for it
+      // If new project, create an initial root node for it (Master Blueprint)
       const existingNodes = await db.nodes.where('projectId').equals(project.id).toArray();
       if (existingNodes.length === 0) {
         const initialRootNode: BOMNode = {
           id: project.rootNodeId,
           projectId: project.id,
+          orderId: null,
           parentId: null,
           title: project.name,
           code: project.code,
@@ -256,8 +260,10 @@ export const App: React.FC = () => {
           status: 'pending',
           startDate: new Date().toISOString().split('T')[0],
           dueDate: new Date(Date.now() + 60 * 86400000).toISOString().split('T')[0],
-          batchQuantity: project.targetOutputUnits,
+          baseBatchQuantity: 1,
+          batchQuantity: 1,
           unit: 'units',
+          baseNormHours: 50,
           normHours: 50,
           weight: 50,
           orderIndex: 0,
@@ -336,6 +342,11 @@ export const App: React.FC = () => {
 
       await loadDatabaseData();
       await handleSelectProject(result.project.id);
+      if (result.order) {
+        setSelectedOrderId(result.order.id);
+      } else {
+        setSelectedOrderId(null);
+      }
       setActiveTab('bom');
       setTemplatesModalOpen(false);
 
@@ -355,6 +366,7 @@ export const App: React.FC = () => {
       await factoryReset();
       await loadDatabaseData();
       await handleSelectProject(DEMO_PROJECT_ID);
+      setSelectedOrderId(null);
       setActiveTab('bom');
     } catch (err) {
       console.error('Failed to execute factory reset:', err);
@@ -439,6 +451,9 @@ export const App: React.FC = () => {
               <BomTreeView
                 project={activeProject}
                 nodes={nodes}
+                orders={orders}
+                selectedOrderId={selectedOrderId}
+                onSelectOrderId={setSelectedOrderId}
                 onSaveNode={handleSaveNode}
                 onDeleteNode={handleDeleteNode}
                 onSaveAsTemplate={handleSaveCurrentProjectAsTemplate}
@@ -453,6 +468,10 @@ export const App: React.FC = () => {
                 templates={templates}
                 onSaveOrder={handleSaveOrder}
                 onDeleteOrder={handleDeleteOrder}
+                onOpenOrderBOM={(ord) => {
+                  setSelectedOrderId(ord.id);
+                  setActiveTab('bom');
+                }}
                 onInstantiateFromTemplate={handleInstantiateTemplate}
                 searchQuery={searchQuery}
               />

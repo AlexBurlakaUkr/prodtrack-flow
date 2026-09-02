@@ -24,6 +24,7 @@ interface NodeEditModalProps {
   nodeToEdit: BOMNode | null;
   parentNode: BOMNode | null;
   projectId: string;
+  orderId?: string | null;
   hasChildren?: boolean;
   onSave: (node: BOMNode) => void;
 }
@@ -34,6 +35,7 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
   nodeToEdit,
   parentNode,
   projectId,
+  orderId = null,
   hasChildren = false,
   onSave,
 }) => {
@@ -240,11 +242,16 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
     const finalAssignees =
       selectedAssignees.length > 0 ? selectedAssignees : [APP_CONFIG.DEFAULT_ASSIGNEES[0]];
 
+    const assignedOrderId = nodeToEdit ? nodeToEdit.orderId : orderId || null;
+    const finalHours = Number(normHours) >= 0 ? Number(normHours) : 1;
+    const finalBaseHours = nodeToEdit?.baseNormHours || finalHours;
+
     const updatedNode: BOMNode = {
       id: nodeToEdit
         ? nodeToEdit.id
         : `node-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       projectId,
+      orderId: assignedOrderId,
       parentId: nodeToEdit ? nodeToEdit.parentId : parentNode ? parentNode.id : null,
       title: title.trim(),
       code: code.trim().toUpperCase(),
@@ -255,10 +262,12 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
       assignee: finalAssignees[0],
       startDate,
       dueDate,
+      baseBatchQuantity: nodeToEdit?.baseBatchQuantity || Number(batchQuantity) || 1,
       batchQuantity: Number(batchQuantity) || 1,
       unit: unit.trim() || 'pcs',
-      normHours: Number(normHours) >= 0 ? Number(normHours) : 1,
-      weight: Number(normHours) >= 0 ? Number(normHours) : 1,
+      baseNormHours: finalBaseHours,
+      normHours: finalHours,
+      weight: finalHours,
       notes: notes.trim(),
       image,
       orderIndex: nodeToEdit ? nodeToEdit.orderIndex : Date.now(),

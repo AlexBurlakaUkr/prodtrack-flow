@@ -57,6 +57,13 @@ export const en = {
   // BOM Tree View
   bom_canvas_title: 'Interactive Visual Bill of Materials',
   bom_canvas_subtitle: 'Symmetrically Aligned 5-Level Hierarchical Tree with Real-Time Labor Hours Roll-Up',
+  tree_scope_selector: 'BOM View Scope / Order',
+  tree_scope_master: 'Master Blueprint (1 unit)',
+  tree_scope_order: 'Order #{number} • Batch: {qty} units',
+  order_scaled_hours_hint: '⏱ {scaled}h (Base: {base}h × {qty} units)',
+  order_batch_badge: 'Batch #{number} ({qty} units)',
+  open_bom_tree: 'Open BOM Tree',
+  delete_order_confirm_desc: 'Are you sure you want to delete order {number}? All associated order BOM component trees and progress will be permanently removed. The master product blueprint will remain intact.',
   expand_all: 'Expand All',
   collapse_all: 'Collapse All',
   zoom_in: 'Zoom In',

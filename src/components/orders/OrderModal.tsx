@@ -12,7 +12,7 @@ interface OrderModalProps {
   onClose: () => void;
   orderToEdit: ProductionOrder | null;
   projectId: string;
-  onSave: (order: ProductionOrder) => void;
+  onSave: (order: ProductionOrder, templateId?: string) => void;
   templates?: ProductTemplate[];
   onInstantiateFromTemplate?: (
     templateId: string,
@@ -126,19 +126,6 @@ export const OrderModal: React.FC<OrderModalProps> = ({
       return;
     }
 
-    if (creationMode === 'template' && onInstantiateFromTemplate && selectedTemplateId) {
-      onInstantiateFromTemplate(
-        selectedTemplateId,
-        title.trim(),
-        orderNumber.trim().toUpperCase(),
-        Number(batchQuantity) || 1,
-        startDate,
-        customerName.trim()
-      );
-      onClose();
-      return;
-    }
-
     const qty = Math.max(1, Number(batchQuantity) || 1);
     const completed = Math.min(qty, Math.max(0, Number(completedUnits) || 0));
     const calculatedProgress = Math.round((completed / qty) * 100);
@@ -153,16 +140,17 @@ export const OrderModal: React.FC<OrderModalProps> = ({
       completedUnits: completed,
       status: completed === qty ? 'completed' : status,
       priority,
-      progress: calculatedProgress,
+      progress: orderToEdit ? orderToEdit.progress : calculatedProgress,
       startDate,
       targetDate,
       notes: notes.trim(),
       highlightNote: highlightNote.trim(),
       assignedLead,
       assignedTeam,
+      templateId: creationMode === 'template' ? selectedTemplateId : undefined,
     };
 
-    onSave(updatedOrder);
+    onSave(updatedOrder, creationMode === 'template' ? selectedTemplateId : undefined);
     onClose();
   };
 
@@ -185,14 +173,14 @@ export const OrderModal: React.FC<OrderModalProps> = ({
             onClick={handleSave}
             className="px-5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white shadow-lg shadow-indigo-500/25 border border-indigo-400/30 transition-all"
           >
-            {creationMode === 'template' ? t('instantiate_button') : t('save_changes')}
+            {t('save_changes')}
           </button>
         </>
       }
     >
       <div className="space-y-4">
         {/* Mode Selector for New Orders */}
-        {!orderToEdit && templates.length > 0 && onInstantiateFromTemplate && (
+        {!orderToEdit && templates.length > 0 && (
           <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-white/10 dark:bg-slate-800/40 border border-white/10">
             <button
               type="button"
@@ -204,7 +192,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
               }`}
             >
               <Layers className="w-3.5 h-3.5" />
-              <span>{t('custom_order')}</span>
+              <span>Базовий BOM проєкту</span>
             </button>
 
             <button

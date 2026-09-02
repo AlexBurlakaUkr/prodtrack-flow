@@ -10,6 +10,7 @@ import {
   Clock,
   Users,
   Layers,
+  Package,
 } from 'lucide-react';
 import { BOMNode } from '../../types';
 import { useI18n } from '../../locales';
@@ -54,6 +55,8 @@ export const BomNodeCard: React.FC<BomNodeCardProps> = ({
       : [];
 
   const normHours = typeof node.normHours === 'number' ? node.normHours : node.weight || 0;
+  const baseNormHours = typeof node.baseNormHours === 'number' ? node.baseNormHours : normHours;
+  const isScaled = Boolean(node.orderId && baseNormHours > 0 && normHours !== baseNormHours);
   const unitHours = t('norm_hours_unit');
 
   // Calculate days remaining to due date
@@ -77,6 +80,14 @@ export const BomNodeCard: React.FC<BomNodeCardProps> = ({
   } catch (e) {
     // Ignore date parse issues
   }
+
+  const hoursTooltip = isScaled
+    ? t('order_scaled_hours_hint', {
+        scaled: normHours,
+        base: baseNormHours,
+        qty: Math.round(normHours / (baseNormHours || 1)),
+      })
+    : `${t('norm_hours')}: ${normHours} ${unitHours}`;
 
   return (
     <GlassCard
@@ -105,20 +116,21 @@ export const BomNodeCard: React.FC<BomNodeCardProps> = ({
               {node.code}
             </span>
 
-            {/* Prominent Norm-Hours Badge */}
+            {/* Prominent Norm-Hours Badge (with scaled indicator) */}
             <span
-              className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-300 flex items-center gap-1 shadow-sm"
-              title={
-                hasChildren
-                  ? t('norm_hours_locked_hint')
-                  : `${t('norm_hours')}: ${normHours} ${unitHours}`
-              }
+              className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-300 flex items-center gap-1 shadow-sm cursor-help"
+              title={hoursTooltip}
             >
               <Clock className="w-3 h-3 text-sky-400" />
               <span>
                 {hasChildren && <span className="text-[10px] font-normal mr-0.5">∑</span>}
                 {normHours} {unitHours}
               </span>
+              {isScaled && (
+                <span className="text-[9px] font-normal text-sky-400/80 ml-0.5 border-l border-sky-500/30 pl-1">
+                  ({baseNormHours}×)
+                </span>
+              )}
             </span>
           </div>
 
@@ -216,9 +228,12 @@ export const BomNodeCard: React.FC<BomNodeCardProps> = ({
             <StackedAvatars assignees={assigneesList} size="xs" />
           </div>
 
-          {/* Batch info */}
-          <div className="text-[11px] font-medium text-slate-600 dark:text-slate-300 bg-white/10 dark:bg-slate-900/40 px-2 py-0.5 rounded-lg border border-white/10 shrink-0">
-            {node.batchQuantity} {node.unit}
+          {/* Batch quantity info */}
+          <div className="text-[11px] font-medium text-slate-600 dark:text-slate-300 bg-white/10 dark:bg-slate-900/40 px-2 py-0.5 rounded-lg border border-white/10 shrink-0 flex items-center gap-1">
+            <Package className="w-3 h-3 text-slate-400" />
+            <span>
+              {node.batchQuantity} {node.unit}
+            </span>
           </div>
 
           {/* Deadline / Overdue Alert */}
@@ -251,12 +266,16 @@ export const BomNodeCard: React.FC<BomNodeCardProps> = ({
             {isExpanded ? (
               <>
                 <ChevronDown className="w-3.5 h-3.5 text-indigo-400" />
-                <span>{t('collapse_all')} ({childCount} items • {normHours} {unitHours})</span>
+                <span>
+                  {t('collapse_all')} ({childCount} items • {normHours} {unitHours})
+                </span>
               </>
             ) : (
               <>
                 <ChevronRight className="w-3.5 h-3.5 text-indigo-400" />
-                <span>{t('expand_all')} ({childCount} items • {normHours} {unitHours})</span>
+                <span>
+                  {t('expand_all')} ({childCount} items • {normHours} {unitHours})
+                </span>
               </>
             )}
           </button>

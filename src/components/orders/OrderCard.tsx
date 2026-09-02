@@ -8,7 +8,8 @@ import {
   Edit2,
   Trash2,
   Building2,
-  Layers,
+  Network,
+  ArrowRight,
 } from 'lucide-react';
 import { ProductionOrder } from '../../types';
 import { useI18n } from '../../locales';
@@ -21,10 +22,11 @@ import { differenceInDays, parseISO } from 'date-fns';
 interface OrderCardProps {
   order: ProductionOrder;
   onEdit: (order: ProductionOrder) => void;
-  onDelete: (orderId: string) => void;
+  onDelete: (order: ProductionOrder) => void;
+  onOpenTree?: (order: ProductionOrder) => void;
 }
 
-export const OrderCard: React.FC<OrderCardProps> = ({ order, onEdit, onDelete }) => {
+export const OrderCard: React.FC<OrderCardProps> = ({ order, onEdit, onDelete, onOpenTree }) => {
   const { t } = useI18n();
 
   // Delivery status calculation
@@ -73,7 +75,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({ order, onEdit, onDelete })
             <Edit2 className="w-3.5 h-3.5" />
           </button>
           <button
-            onClick={() => onDelete(order.id)}
+            onClick={() => onDelete(order)}
             className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/25 text-rose-400 hover:text-rose-300 border border-rose-500/20 transition-all"
             title={t('delete_order')}
           >
@@ -129,8 +131,24 @@ export const OrderCard: React.FC<OrderCardProps> = ({ order, onEdit, onDelete })
             ({order.progress}%)
           </span>
         </div>
-        <ProgressBar progress={order.progress} status={order.status === 'urgent_delayed' ? 'delayed' : order.status === 'completed' ? 'completed' : 'in_progress'} size="md" />
+        <ProgressBar
+          progress={order.progress}
+          status={order.status === 'urgent_delayed' ? 'delayed' : order.status === 'completed' ? 'completed' : 'in_progress'}
+          size="md"
+        />
       </div>
+
+      {/* Open BOM Tree Button for this Order */}
+      {onOpenTree && (
+        <button
+          onClick={() => onOpenTree(order)}
+          className="w-full py-2 px-3 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-300 hover:text-white text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-sm"
+        >
+          <Network className="w-3.5 h-3.5 text-indigo-400" />
+          <span>{t('open_bom_tree')} ({order.batchQuantity} {t('units')})</span>
+          <ArrowRight className="w-3.5 h-3.5 ml-auto opacity-70" />
+        </button>
+      )}
 
       {/* Footer: Dates & Assigned Lead */}
       <div className="pt-3 border-t border-black/5 dark:border-white/10 flex items-center justify-between gap-3 flex-wrap text-xs">

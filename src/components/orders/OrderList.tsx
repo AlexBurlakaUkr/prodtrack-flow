@@ -9,6 +9,7 @@ import {
   Filter,
   Layers,
   Sparkles,
+  AlertCircle,
 } from 'lucide-react';
 import { ProductionOrder, Project, OrderStatus, ProductTemplate } from '../../types';
 import { useI18n } from '../../locales';
@@ -20,8 +21,9 @@ interface OrderListProps {
   project: Project;
   orders: ProductionOrder[];
   templates?: ProductTemplate[];
-  onSaveOrder: (order: ProductionOrder) => void;
+  onSaveOrder: (order: ProductionOrder, templateId?: string) => void;
   onDeleteOrder: (orderId: string) => void;
+  onOpenOrderBOM?: (order: ProductionOrder) => void;
   onInstantiateFromTemplate?: (
     templateId: string,
     projectName: string,
@@ -39,6 +41,7 @@ export const OrderList: React.FC<OrderListProps> = ({
   templates = [],
   onSaveOrder,
   onDeleteOrder,
+  onOpenOrderBOM,
   onInstantiateFromTemplate,
   searchQuery,
 }) => {
@@ -47,6 +50,7 @@ export const OrderList: React.FC<OrderListProps> = ({
   const [modalOpen, setModalOpen] = useState(false);
   const [orderToEdit, setOrderToEdit] = useState<ProductionOrder | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | OrderStatus>('all');
+  const [deleteConfirmOrder, setDeleteConfirmOrder] = useState<ProductionOrder | null>(null);
 
   // Calculate Batch Aggregations
   const stats = useMemo(() => {
@@ -87,7 +91,7 @@ export const OrderList: React.FC<OrderListProps> = ({
         const matchNum = ord.orderNumber.toLowerCase().includes(q);
         const matchTitle = ord.title.toLowerCase().includes(q);
         const matchCust = ord.customerName.toLowerCase().includes(q);
-        const matchLead = ord.assignedLead.name.toLowerCase().includes(q);
+        const matchLead = ord.assignedLead?.name.toLowerCase().includes(q);
         if (!matchNum && !matchTitle && !matchCust && !matchLead) return false;
       }
       return true;
@@ -205,7 +209,10 @@ export const OrderList: React.FC<OrderListProps> = ({
                 setOrderToEdit(ord);
                 setModalOpen(true);
               }}
-              onDelete={onDeleteOrder}
+              onDelete={(ord) => {
+                setDeleteConfirmOrder(ord);
+              }}
+              onOpenTree={onOpenOrderBOM}
             />
           ))}
         </div>
@@ -234,12 +241,55 @@ export const OrderList: React.FC<OrderListProps> = ({
         orderToEdit={orderToEdit}
         projectId={project.id}
         templates={templates}
-        onSave={(ord) => {
-          onSaveOrder(ord);
+        onSave={(ord, templateId) => {
+          onSaveOrder(ord, templateId);
           setModalOpen(false);
         }}
         onInstantiateFromTemplate={onInstantiateFromTemplate}
       />
+
+      {/* Cascading Delete Order Confirmation Dialog */}
+      {deleteConfirmOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => setDeleteConfirmOrder(null)}
+          />
+          <GlassCard
+            variant="elevated"
+            className="w-full max-w-md z-10 p-6 border-rose-500/40 shadow-2xl bg-slate-900/90 rounded-3xl"
+          >
+            <div className="flex items-center gap-3 text-rose-400 mb-3">
+              <AlertCircle className="w-6 h-6 shrink-0" />
+              <h3 className="text-lg font-bold text-white">
+                {t('delete_order')} ({deleteConfirmOrder.orderNumber})
+              </h3>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed mb-6">
+              {t('delete_order_confirm_desc', {
+                number: deleteConfirmOrder.orderNumber,
+              })}
+            </p>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={() => setDeleteConfirmOrder(null)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-white/10"
+              >
+                {t('cancel')}
+              </button>
+              <button
+                onClick={() => {
+                  onDeleteOrder(deleteConfirmOrder.id);
+                  setDeleteConfirmOrder(null);
+                }}
+                className="px-5 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-lg shadow-rose-600/30"
+              >
+                {t('delete')}
+              </button>
+            </div>
+          </GlassCard>
+        </div>
+      )}
     </div>
   );
 };

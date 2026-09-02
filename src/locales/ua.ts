@@ -59,6 +59,13 @@ export const ua: Record<TranslationKey, string> = {
   // BOM Tree View
   bom_canvas_title: 'Інтерактивна візуальна специфікація BOM',
   bom_canvas_subtitle: 'Симетрично вирівняне 5-рівневе дерево з автоматичним зведенням нормо-годин',
+  tree_scope_selector: 'Вигляд специфікації / Замовлення',
+  tree_scope_master: 'Еталонний шаблон виробу (1 шт.)',
+  tree_scope_order: 'Замовлення #{number} • Партія: {qty} шт.',
+  order_scaled_hours_hint: '⏱ {scaled} год (Базово: {base} год × {qty} шт.)',
+  order_batch_badge: 'Партія #{number} ({qty} шт.)',
+  open_bom_tree: 'Відкрити дерево BOM',
+  delete_order_confirm_desc: 'Ви впевнені, що хочете видалити замовлення {number}? Всі пов’язані вузли BOM цієї партії, прогрес та графіки буде безповоротно видалено. Еталонний шаблон виробу залишиться без змін.',
   expand_all: 'Розгорнути все',
   collapse_all: 'Згорнути все',
   zoom_in: 'Збільшити',

@@ -12,8 +12,12 @@ import {
   AlertCircle,
   BookmarkPlus,
   AlignCenter,
+  Package,
+  Sparkles,
+  Building2,
+  Calendar,
 } from 'lucide-react';
-import { BOMNode, NodeLevel, NodeStatus, Project } from '../../types';
+import { BOMNode, NodeLevel, NodeStatus, Project, ProductionOrder } from '../../types';
 import { useI18n } from '../../locales';
 import { APP_CONFIG } from '../../config/AppConfig';
 import { BomNodeCard } from './BomNodeCard';
@@ -24,6 +28,9 @@ import { buildBOMTree, getDescendantNodeIds } from '../../services/rollupCalcula
 interface BomTreeViewProps {
   project: Project;
   nodes: BOMNode[];
+  orders?: ProductionOrder[];
+  selectedOrderId?: string | null;
+  onSelectOrderId?: (orderId: string | null) => void;
   onSaveNode: (node: BOMNode) => void;
   onDeleteNode: (nodeId: string) => void;
   onSaveAsTemplate?: () => void;
@@ -33,6 +40,9 @@ interface BomTreeViewProps {
 export const BomTreeView: React.FC<BomTreeViewProps> = ({
   project,
   nodes,
+  orders = [],
+  selectedOrderId = null,
+  onSelectOrderId,
   onSaveNode,
   onDeleteNode,
   onSaveAsTemplate,
@@ -41,17 +51,32 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
   const { t } = useI18n();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  // Filter nodes for the current scope (Master Blueprint vs Specific Order Instance)
+  const scopedNodes = useMemo(() => {
+    if (selectedOrderId) {
+      return nodes.filter((n) => n.orderId === selectedOrderId);
+    }
+    // Master Blueprint (where orderId is null or undefined)
+    return nodes.filter((n) => !n.orderId);
+  }, [nodes, selectedOrderId]);
+
+  // Active Order object if scoped to an order
+  const activeOrder = useMemo(() => {
+    if (!selectedOrderId) return null;
+    return orders.find((o) => o.id === selectedOrderId) || null;
+  }, [orders, selectedOrderId]);
+
   // Expansion State: By default expand root node and first module
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(() => {
     const defaultExpanded = new Set<string>();
-    const root = nodes.find((n) => n.level === 1);
+    const root = scopedNodes.find((n) => n.level === 1);
     if (root) defaultExpanded.add(root.id);
-    const firstL2 = nodes.find((n) => n.level === 2);
+    const firstL2 = scopedNodes.find((n) => n.level === 2);
     if (firstL2) defaultExpanded.add(firstL2.id);
     return defaultExpanded;
   });
 
-  // Filter & Zoom state (Zoom can now go from 50% up to 130%)
+  // Filter & Zoom state
   const [levelFilter, setLevelFilter] = useState<'all' | NodeLevel>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | NodeStatus>('all');
   const [assigneeFilter, setAssigneeFilter] = useState<string>('all');
@@ -68,27 +93,23 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
   /**
    * Smart Accordion Expansion:
    * When expanding a node, automatically collapse sibling branches under the same parent
-   * to keep the tree clean, focused, and completely prevent visual card collisions/overlaps.
    */
   const toggleExpand = (nodeId: string) => {
     setExpandedNodes((prev) => {
       const next = new Set(prev);
       if (next.has(nodeId)) {
-        // Collapsing: remove this node and all its nested children
-        const descendants = getDescendantNodeIds(nodes, nodeId);
+        const descendants = getDescendantNodeIds(scopedNodes, nodeId);
         next.delete(nodeId);
         descendants.forEach((d) => next.delete(d));
       } else {
-        // Expanding: find target node and its siblings
-        const targetNode = nodes.find((n) => n.id === nodeId);
+        const targetNode = scopedNodes.find((n) => n.id === nodeId);
         if (targetNode) {
-          // Collapse all sibling branches at the same level under the same parent
-          const siblings = nodes.filter(
+          const siblings = scopedNodes.filter(
             (n) => n.parentId === targetNode.parentId && n.id !== targetNode.id
           );
           siblings.forEach((sibling) => {
             next.delete(sibling.id);
-            const siblingDescendants = getDescendantNodeIds(nodes, sibling.id);
+            const siblingDescendants = getDescendantNodeIds(scopedNodes, sibling.id);
             siblingDescendants.forEach((d) => next.delete(d));
           });
         }
@@ -100,7 +121,7 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
 
   const expandAll = () => {
     const all = new Set<string>();
-    nodes.forEach((n) => all.add(n.id));
+    scopedNodes.forEach((n) => all.add(n.id));
     setExpandedNodes(all);
   };
 
@@ -110,7 +131,7 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
 
   // Filter nodes
   const filteredNodes = useMemo(() => {
-    return nodes.filter((node) => {
+    return scopedNodes.filter((node) => {
       if (levelFilter !== 'all' && node.level !== levelFilter) return false;
       if (statusFilter !== 'all' && node.status !== statusFilter) return false;
       if (assigneeFilter !== 'all') {
@@ -134,15 +155,15 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
       }
       return true;
     });
-  }, [nodes, levelFilter, statusFilter, assigneeFilter, searchQuery]);
+  }, [scopedNodes, levelFilter, statusFilter, assigneeFilter, searchQuery]);
 
   const treeRoots = useMemo(() => {
-    return buildBOMTree(nodes);
-  }, [nodes]);
+    return buildBOMTree(scopedNodes);
+  }, [scopedNodes]);
 
   const childrenLookup = useMemo(() => {
     const map = new Map<string, BOMNode[]>();
-    nodes.forEach((n) => {
+    scopedNodes.forEach((n) => {
       if (n.parentId) {
         const list = map.get(n.parentId) || [];
         list.push(n);
@@ -150,7 +171,7 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
       }
     });
     return map;
-  }, [nodes]);
+  }, [scopedNodes]);
 
   // Center scroll horizontally
   const handleCenterView = () => {
@@ -173,7 +194,7 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
 
     const isVisible = filteredNodes.some((fn) => fn.id === node.id);
     const hasMatchingDescendant = filteredNodes.some((fn) => {
-      const descendants = getDescendantNodeIds(nodes, node.id);
+      const descendants = getDescendantNodeIds(scopedNodes, node.id);
       return descendants.includes(fn.id);
     });
 
@@ -217,7 +238,7 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
             {/* Center line from parent */}
             <div className="w-0.5 h-7 bg-gradient-to-b from-indigo-500 to-indigo-400 shadow-glow" />
 
-            {/* Symmetrical child branches container - dynamic width to prevent overlap */}
+            {/* Symmetrical child branches container */}
             <div className="w-fit min-w-full flex flex-row items-start justify-center gap-8 relative pt-2 px-4">
               {/* Horizontal connecting ribbon across multiple children */}
               {children.length > 1 && (
@@ -247,20 +268,65 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
       <GlassCard variant="elevated" className="p-4 sm:p-5">
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <FolderTree className="w-5 h-5 text-indigo-400" />
               <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
                 {t('bom_canvas_title')}
               </h2>
+
+              {/* Scope Badge (Master vs Order) */}
+              {activeOrder ? (
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-gradient-to-r from-purple-500/20 to-indigo-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1.5 shadow-sm">
+                  <Package className="w-3.5 h-3.5 text-purple-400" />
+                  <span>{t('order_batch_badge', { number: activeOrder.orderNumber, qty: activeOrder.batchQuantity })}</span>
+                </span>
+              ) : (
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1.5 shadow-sm">
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>{t('tree_scope_master')}</span>
+                </span>
+              )}
             </div>
+
             <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-              {t('bom_canvas_subtitle')}
+              {activeOrder ? (
+                <span>
+                  Замовлення для: <strong className="text-slate-200">{activeOrder.customerName}</strong> • Цільовий термін: {activeOrder.targetDate}
+                </span>
+              ) : (
+                t('bom_canvas_subtitle')
+              )}
             </p>
           </div>
 
-          {/* Action buttons & Zoom (50% to 130%) */}
+          {/* Action buttons, Order Scope Switcher & Zoom */}
           <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto justify-end">
-            {onSaveAsTemplate && (
+            {/* Tree Scope / Order Switcher Dropdown */}
+            {onSelectOrderId && (
+              <div className="flex items-center gap-1 bg-white/10 dark:bg-slate-800/50 rounded-xl border border-white/15 p-1">
+                <span className="text-[11px] font-semibold text-slate-400 pl-2 hidden sm:inline">
+                  {t('tree_scope_selector')}:
+                </span>
+                <select
+                  value={selectedOrderId || 'master'}
+                  onChange={(e) =>
+                    onSelectOrderId(e.target.value === 'master' ? null : e.target.value)
+                  }
+                  className="px-2.5 py-1 text-xs rounded-lg bg-slate-900 border border-white/10 text-white font-semibold outline-none"
+                >
+                  <option value="master">
+                    💎 {t('tree_scope_master')}
+                  </option>
+                  {orders.map((ord) => (
+                    <option key={ord.id} value={ord.id}>
+                      📦 {t('tree_scope_order', { number: ord.orderNumber, qty: ord.batchQuantity })} ({ord.customerName})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {onSaveAsTemplate && !selectedOrderId && (
               <button
                 onClick={onSaveAsTemplate}
                 className="px-3.5 py-1.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/30 text-xs font-semibold text-purple-300 flex items-center gap-1.5 transition-all shadow-sm"
@@ -287,9 +353,7 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
               <span>{t('collapse_all')}</span>
             </button>
 
-            <div className="h-5 w-px bg-slate-300 dark:bg-slate-700 mx-1 hidden sm:block" />
-
-            {/* Zoom Controls (50% to 130%) */}
+            {/* Zoom Controls */}
             <div className="flex items-center bg-white/10 dark:bg-slate-800/40 rounded-xl border border-white/10 p-0.5">
               <button
                 onClick={() =>
@@ -399,7 +463,7 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
 
       {/* Main Symmetrical Centered Canvas with Smooth Edge Fade Masks */}
       <div className="relative w-full overflow-hidden rounded-3xl">
-        {/* Left & Right Smooth Edge Fade Overlays for soft UI transition */}
+        {/* Left & Right Smooth Edge Fade Overlays */}
         <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-10 sm:w-16 bg-gradient-to-r from-slate-950/80 via-slate-950/30 to-transparent z-20" />
         <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-10 sm:w-16 bg-gradient-to-l from-slate-950/80 via-slate-950/30 to-transparent z-20" />
 
@@ -457,6 +521,7 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
         nodeToEdit={nodeToEdit}
         parentNode={parentNodeForNew}
         projectId={project.id}
+        orderId={selectedOrderId}
         hasChildren={nodeToEdit ? Boolean(childrenLookup.get(nodeToEdit.id)?.length) : false}
         onSave={(node) => {
           onSaveNode(node);
@@ -483,7 +548,7 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
             </div>
             <p className="text-xs text-slate-300 leading-relaxed mb-6">
               {t('delete_confirm_desc', {
-                count: getDescendantNodeIds(nodes, deleteConfirmNode.id).length,
+                count: getDescendantNodeIds(scopedNodes, deleteConfirmNode.id).length,
               })}
             </p>
             <div className="flex items-center justify-end gap-3">
