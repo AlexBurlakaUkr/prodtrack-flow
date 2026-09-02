@@ -53,20 +53,14 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Left: App Logo & Project Switcher Dropdown */}
         <div className="flex items-center justify-between w-full md:w-auto gap-3 sm:gap-4">
           {/* Logo & Brand */}
-          <div className="flex items-center gap-2.5 shrink-0">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-500 flex items-center justify-center shadow-glass-glow">
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-500 flex items-center justify-center shadow-glass-glow">
               <Layers className="w-5 h-5 text-white" />
             </div>
             <div className="hidden sm:block">
-              <h1 className="text-sm font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
-                <span>{t('app_name')}</span>
-                <span className="text-[10px] uppercase font-mono px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-                  FLOW
-                </span>
-              </h1>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+              <h1 className="text-xs sm:text-sm font-extrabold tracking-tight text-slate-900 dark:text-white drop-shadow-sm">
                 {t('app_subtitle')}
-              </p>
+              </h1>
             </div>
           </div>
 
