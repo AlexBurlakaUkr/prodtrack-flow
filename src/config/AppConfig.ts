@@ -8,7 +8,8 @@ import { Assignee } from '../types';
 export const APP_CONFIG = {
   APP_NAME: 'ProdTrack Flow',
   APP_VERSION: '1.1.0',
-  MASTER_PASSWORD: 'OBStudio1620',
+  // Salted SHA-256 Hash of Master Password (Plaintext is NEVER stored in binary/bundle)
+  MASTER_PASSWORD_HASH: 'f5d19a0bcbaf0e1522f08472b7d313406da16f1251f6b5766e5553ed67780669',
   DEFAULT_PROJECT_ID: 'proj-tesla-model3-battery',
   DEFAULT_TEMPLATE_ID: 'tmpl-tesla-model3-battery',
   

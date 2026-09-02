@@ -13,6 +13,7 @@ import {
 import confetti from 'canvas-confetti';
 import { useI18n } from '../../locales';
 import { APP_CONFIG } from '../../config/AppConfig';
+import { computeSHA256 } from '../../services/security';
 
 interface ActivationGateProps {
   onActivate: () => void;
@@ -31,31 +32,38 @@ export const ActivationGate: React.FC<ActivationGateProps> = ({ onActivate }) =>
     inputRef.current?.focus();
   }, []);
 
-  const handleActivate = (e?: React.FormEvent) => {
+  const handleActivate = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!password.trim()) return;
+    if (!password.trim() || isSubmitting) return;
 
     setIsSubmitting(true);
     setError(false);
 
-    // Verify Master Password
-    if (password.trim() === APP_CONFIG.MASTER_PASSWORD) {
-      localStorage.setItem('app_is_activated', 'true');
+    try {
+      // Compare cryptographically salted SHA-256 hash
+      const inputHash = await computeSHA256(password);
+      if (inputHash === APP_CONFIG.MASTER_PASSWORD_HASH) {
+        localStorage.setItem('app_is_activated', 'true');
 
-      confetti({
-        particleCount: 90,
-        spread: 80,
-        origin: { y: 0.6 },
-      });
+        confetti({
+          particleCount: 90,
+          spread: 80,
+          origin: { y: 0.6 },
+        });
 
-      setTimeout(() => {
-        onActivate();
-      }, 400);
-    } else {
+        setTimeout(() => {
+          onActivate();
+        }, 400);
+      } else {
+        setError(true);
+        setShake(true);
+        setIsSubmitting(false);
+        setTimeout(() => setShake(false), 600);
+      }
+    } catch (err) {
+      console.error('Password hash computation error:', err);
       setError(true);
-      setShake(true);
       setIsSubmitting(false);
-      setTimeout(() => setShake(false), 600);
     }
   };
 
