@@ -65,7 +65,7 @@ export const Header: React.FC<HeaderProps> = ({
                 </span>
               </h1>
               <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-                Visual BOM & MES
+                {t('app_subtitle')}
               </p>
             </div>
           </div>

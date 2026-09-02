@@ -22,6 +22,10 @@ import {
   BatteryCharging,
   Clock,
   Boxes,
+  BookOpen,
+  Code2,
+  ExternalLink,
+  Cpu,
 } from 'lucide-react';
 import { ThemeMode, GradientTheme, Language, Assignee } from '../../types';
 import { useI18n } from '../../locales';
@@ -61,7 +65,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const { t, language, setLanguage } = useI18n();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [activeTab, setActiveTab] = useState<'appearance' | 'team' | 'demo' | 'storage'>('appearance');
+  const [activeTab, setActiveTab] = useState<
+    'appearance' | 'team' | 'glossary' | 'demo' | 'storage' | 'developer'
+  >('appearance');
   const [importStatus, setImportStatus] = useState<string | null>(null);
 
   // Team Member Form State
@@ -178,12 +184,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title={t('settings_title')}
-      subtitle="Customize visual aesthetics, team rosters, demo showcase and database management"
+      subtitle="Customize visual aesthetics, team rosters, terminology reference and developer credits"
       size="xl"
       footer={
         <button
           onClick={onClose}
-          className="px-5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg"
+          className="px-5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg transition-all"
         >
           {t('close')}
         </button>
@@ -191,10 +197,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     >
       <div className="space-y-5">
         {/* Navigation Sub-Tabs */}
-        <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-white/10 dark:bg-slate-800/40 border border-white/10">
+        <div className="flex items-center gap-1 p-1 rounded-2xl bg-white/10 dark:bg-slate-800/40 border border-white/10 overflow-x-auto custom-scrollbar">
           <button
             onClick={() => setActiveTab('appearance')}
-            className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+            className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 ${
               activeTab === 'appearance'
                 ? 'bg-indigo-600 text-white shadow-sm'
                 : 'text-slate-400 hover:text-white'
@@ -206,7 +212,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
           <button
             onClick={() => setActiveTab('team')}
-            className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+            className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 ${
               activeTab === 'team'
                 ? 'bg-indigo-600 text-white shadow-sm'
                 : 'text-slate-400 hover:text-white'
@@ -217,8 +223,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </button>
 
           <button
+            onClick={() => setActiveTab('glossary')}
+            className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 ${
+              activeTab === 'glossary'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5 text-indigo-300" />
+            <span>{t('tab_glossary')}</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('demo')}
-            className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+            className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 ${
               activeTab === 'demo'
                 ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-sm'
                 : 'text-slate-400 hover:text-white'
@@ -230,7 +248,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
           <button
             onClick={() => setActiveTab('storage')}
-            className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+            className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 ${
               activeTab === 'storage'
                 ? 'bg-indigo-600 text-white shadow-sm'
                 : 'text-slate-400 hover:text-white'
@@ -238,6 +256,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           >
             <Download className="w-3.5 h-3.5" />
             <span>{t('tab_storage')}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('developer')}
+            className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 ${
+              activeTab === 'developer'
+                ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-sm'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Code2 className="w-3.5 h-3.5 text-purple-300" />
+            <span>{t('tab_developer')}</span>
           </button>
         </div>
 
@@ -510,7 +540,97 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
         )}
 
-        {/* Tab 3: Demo Mode Showcase */}
+        {/* Tab 3: Glossary & Manufacturing Terms (Довідник термінів) */}
+        {activeTab === 'glossary' && (
+          <div className="space-y-4 animate-fadeIn">
+            <div>
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-indigo-400" />
+                <span>{t('glossary_title')}</span>
+              </h4>
+              <p className="text-xs text-slate-400">{t('glossary_subtitle')}</p>
+            </div>
+
+            <div className="space-y-3 max-h-[380px] overflow-y-auto custom-scrollbar pr-1">
+              {/* 1. BOM */}
+              <div className="p-4 rounded-2xl bg-white/10 dark:bg-slate-800/50 border border-indigo-500/20 hover:border-indigo-500/40 transition-all">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="px-2 py-0.5 rounded-lg bg-indigo-500/20 text-indigo-300 font-bold font-mono text-xs border border-indigo-500/30">
+                    BOM
+                  </span>
+                  <h5 className="text-xs font-bold text-white">
+                    {t('glossary_bom_title')}
+                  </h5>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  {t('glossary_bom_desc')}
+                </p>
+              </div>
+
+              {/* 2. Norm-Hours */}
+              <div className="p-4 rounded-2xl bg-white/10 dark:bg-slate-800/50 border border-sky-500/20 hover:border-sky-500/40 transition-all">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="px-2 py-0.5 rounded-lg bg-sky-500/20 text-sky-300 font-bold font-mono text-xs border border-sky-500/30">
+                    ⏱ {t('norm_hours_short')}
+                  </span>
+                  <h5 className="text-xs font-bold text-white">
+                    {t('glossary_normhours_title')}
+                  </h5>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  {t('glossary_normhours_desc')}
+                </p>
+              </div>
+
+              {/* 3. Roll-up */}
+              <div className="p-4 rounded-2xl bg-white/10 dark:bg-slate-800/50 border border-purple-500/20 hover:border-purple-500/40 transition-all">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="px-2 py-0.5 rounded-lg bg-purple-500/20 text-purple-300 font-bold font-mono text-xs border border-purple-500/30">
+                    ∑ Roll-up
+                  </span>
+                  <h5 className="text-xs font-bold text-white">
+                    {t('glossary_rollup_title')}
+                  </h5>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  {t('glossary_rollup_desc')}
+                </p>
+              </div>
+
+              {/* 4. MES */}
+              <div className="p-4 rounded-2xl bg-white/10 dark:bg-slate-800/50 border border-emerald-500/20 hover:border-emerald-500/40 transition-all">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 font-bold font-mono text-xs border border-emerald-500/30">
+                    MES
+                  </span>
+                  <h5 className="text-xs font-bold text-white">
+                    {t('glossary_mes_title')}
+                  </h5>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  {t('glossary_mes_desc')}
+                </p>
+              </div>
+
+              {/* 5. Batch */}
+              <div className="p-4 rounded-2xl bg-white/10 dark:bg-slate-800/50 border border-amber-500/20 hover:border-amber-500/40 transition-all">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-300 font-bold font-mono text-xs border border-amber-500/30">
+                    📦 {t('batch_quantity')}
+                  </span>
+                  <h5 className="text-xs font-bold text-white">
+                    {t('glossary_batch_title')}
+                  </h5>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  {t('glossary_batch_desc')}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 4: Demo Mode Showcase */}
         {activeTab === 'demo' && (
           <div className="space-y-4 animate-fadeIn">
             <div className="p-5 rounded-3xl bg-gradient-to-br from-amber-500/15 via-indigo-500/10 to-purple-500/15 border border-amber-500/30 space-y-4">
@@ -571,7 +691,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
         )}
 
-        {/* Tab 4: Data & Storage */}
+        {/* Tab 5: Data & Storage */}
         {activeTab === 'storage' && (
           <div className="space-y-5 animate-fadeIn">
             <div className="space-y-3">
@@ -650,6 +770,51 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 >
                   {t('factory_reset')}
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 6: Developer Credits (Розробник) */}
+        {activeTab === 'developer' && (
+          <div className="space-y-4 animate-fadeIn">
+            <div className="p-6 rounded-3xl bg-gradient-to-br from-slate-900/80 via-indigo-950/40 to-purple-950/60 border border-indigo-500/30 backdrop-blur-2xl text-center space-y-4 shadow-glass-glow">
+              {/* Studio Logo */}
+              <div className="relative inline-block mx-auto">
+                <div className="absolute -inset-1.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-3xl blur-md opacity-60 animate-pulse" />
+                <img
+                  src="/Icon/LogoOBStudi512x512.png"
+                  alt="OBStudio Logo"
+                  className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl object-cover shadow-2xl ring-2 ring-white/30 mx-auto"
+                />
+              </div>
+
+              {/* Studio Name & Tagline */}
+              <div>
+                <h3 className="text-xl sm:text-2xl font-extrabold bg-gradient-to-r from-indigo-300 via-purple-200 to-pink-300 bg-clip-text text-transparent tracking-tight">
+                  {t('dev_studio_name')}
+                </h3>
+                <p className="text-xs text-slate-300 mt-1 max-w-md mx-auto leading-relaxed">
+                  {t('dev_tagline')}
+                </p>
+              </div>
+
+              {/* Version Badge */}
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-[11px] font-mono font-bold text-indigo-300 shadow-inner">
+                <Cpu className="w-3.5 h-3.5 text-indigo-400" />
+                <span>{t('dev_edition')}</span>
+              </div>
+
+              {/* Contact Email Action */}
+              <div className="pt-2 border-t border-white/10 flex flex-col sm:flex-row items-center justify-center gap-3">
+                <a
+                  href="mailto:obgamestudio@gmail.com"
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-indigo-500/30 border border-indigo-400/40 transition-all hover:scale-105"
+                >
+                  <Mail className="w-4 h-4" />
+                  <span>{t('dev_contact_btn')} (obgamestudio@gmail.com)</span>
+                  <ExternalLink className="w-3.5 h-3.5 opacity-70 ml-1" />
+                </a>
               </div>
             </div>
           </div>

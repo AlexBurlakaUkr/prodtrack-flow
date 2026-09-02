@@ -3,10 +3,11 @@ import { TranslationKey } from './en';
 export const ua: Record<TranslationKey, string> = {
   // App
   app_name: 'ProdTrack Flow',
+  app_subtitle: 'Система візуалізації виробництва',
   app_tagline: 'Високоточний візуальний BOM та трекінг виробництва',
   
   // Navigation
-  tab_bom: 'Візуальне дерево BOM',
+  tab_bom: 'Структура виробу',
   tab_orders: 'Замовлення та партії',
   tab_templates: 'Шаблони виробів',
   tab_analytics: 'Аналітика та KPI',
@@ -57,7 +58,7 @@ export const ua: Record<TranslationKey, string> = {
   priority_critical: 'Критичний',
   
   // BOM Tree View
-  bom_canvas_title: 'Інтерактивна візуальна специфікація BOM',
+  bom_canvas_title: 'Структура та специфікація виробу',
   bom_canvas_subtitle: 'Симетрично вирівняне 5-рівневе дерево з автоматичним зведенням нормо-годин',
   tree_scope_selector: 'Вигляд специфікації / Замовлення',
   tree_scope_master: 'Еталонний шаблон виробу (1 шт.)',
@@ -216,8 +217,10 @@ export const ua: Record<TranslationKey, string> = {
   settings_title: 'Налаштування системи та керування даними',
   tab_appearance: 'Вигляд та теми',
   tab_team: 'Команда',
+  tab_glossary: 'Довідник термінів',
   tab_demo: 'Демо режим',
   tab_storage: 'Дані та копії',
+  tab_developer: 'Розробник',
   demo_mode_title: 'Демо-проєкт: Tesla Model 3 82kWh Battery Pack',
   demo_mode_desc: 'Еталонний 5-рівневий виробничий проєкт виготовлення тягової батареї на 175 нормо-годин із прив’язкою інженерів та 3 виробничими партіями.',
   launch_demo_button: 'Запустити Демо-проєкт (Tesla Model 3)',
@@ -245,6 +248,28 @@ export const ua: Record<TranslationKey, string> = {
   reset_button: 'Виконати скидання',
   reset_success: 'Систему успішно скинуто до початкового стану.',
   
+  // Glossary Entries
+  glossary_title: 'Довідник виробничих та інженерних термінів',
+  glossary_subtitle: 'Швидкий довідник термінології BOM, нормування праці та виробничого менеджменту',
+  glossary_bom_title: 'BOM (Bill of Materials)',
+  glossary_bom_desc: 'Специфікація виробу — повний перелік вузлів, деталей та операцій для складання 1 одиниці продукції.',
+  glossary_normhours_title: 'Нормо-години (год)',
+  glossary_normhours_desc: 'Планова тривалість/трудомісткість виконання операції чи вузла.',
+  glossary_rollup_title: 'Roll-up (Каскадний підсумок)',
+  glossary_rollup_desc: 'Автоматичний підрахунок відсотка готовності та годин знизу вгору (від дрібних деталей до готового виробу).',
+  glossary_mes_title: 'MES (Manufacturing Execution System)',
+  glossary_mes_desc: 'Система оперативного управління та моніторингу виробничого процесу.',
+  glossary_batch_title: 'Партія (Batch)',
+  glossary_batch_desc: 'Кількість однакових виробів, що виготовляються за одним замовленням.',
+
+  // Developer Credits
+  dev_title: 'Інформація про розробника',
+  dev_studio_name: 'OBStudio',
+  dev_contact_email: 'obgamestudio@gmail.com',
+  dev_edition: 'ProdTrack Flow v1.0 • Desktop Edition (Windows)',
+  dev_tagline: 'Розробка сучасних виробничих рішень та високоефективних настільних додатків',
+  dev_contact_btn: 'Написати розробнику (Email)',
+
   // General UI
   all_levels: 'Всі рівні',
   all_statuses: 'Всі статуси',

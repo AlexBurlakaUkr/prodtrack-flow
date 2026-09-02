@@ -1,10 +1,11 @@
 export const en = {
   // App
   app_name: 'ProdTrack Flow',
+  app_subtitle: 'Production Tracking & Flow',
   app_tagline: 'High-Precision Visual BOM & Manufacturing Tracking',
   
   // Navigation
-  tab_bom: 'Visual BOM Tree',
+  tab_bom: 'Product Structure',
   tab_orders: 'Order & Batch Tracking',
   tab_templates: 'Product Templates',
   tab_analytics: 'Analytics & KPIs',
@@ -55,7 +56,7 @@ export const en = {
   priority_critical: 'Critical',
   
   // BOM Tree View
-  bom_canvas_title: 'Interactive Visual Bill of Materials',
+  bom_canvas_title: 'Product Structure Specification',
   bom_canvas_subtitle: 'Symmetrically Aligned 5-Level Hierarchical Tree with Real-Time Labor Hours Roll-Up',
   tree_scope_selector: 'BOM View Scope / Order',
   tree_scope_master: 'Master Blueprint (1 unit)',
@@ -214,8 +215,10 @@ export const en = {
   settings_title: 'System Preferences & Data Management',
   tab_appearance: 'Visual & Themes',
   tab_team: 'Team Management',
+  tab_glossary: 'Glossary & Terms',
   tab_demo: 'Demo Mode',
   tab_storage: 'Data & Backups',
+  tab_developer: 'Developer',
   demo_mode_title: 'Tesla Model 3 Structural Battery Pack Demo',
   demo_mode_desc: 'Reference 5-level high-voltage battery pack manufacturing archetype with 175 norm-hours, multi-specialist assignments, and 3 production batches.',
   launch_demo_button: 'Load Demo Project (Tesla Model 3)',
@@ -243,6 +246,28 @@ export const en = {
   reset_button: 'Execute Factory Reset',
   reset_success: 'System has been successfully reset to factory defaults.',
   
+  // Glossary Entries
+  glossary_title: 'Manufacturing & Engineering Glossary',
+  glossary_subtitle: 'Quick reference guide explaining shop floor, BOM, and production management terminology',
+  glossary_bom_title: 'BOM (Bill of Materials)',
+  glossary_bom_desc: 'Product specification — a comprehensive hierarchical list of all sub-assemblies, components, raw materials, and operations required to assemble 1 unit of product.',
+  glossary_normhours_title: 'Norm-Hours (h)',
+  glossary_normhours_desc: 'Standard labor intensity — the planned duration and labor time allocated for an operation or sub-assembly.',
+  glossary_rollup_title: 'Roll-up (Cascade Summation)',
+  glossary_rollup_desc: 'Automated bottom-up calculation of completion percentage and labor hours up the tree (from leaf parts to final end item).',
+  glossary_mes_title: 'MES (Manufacturing Execution System)',
+  glossary_mes_desc: 'Operational management and real-time shop-floor tracking system for production workflows.',
+  glossary_batch_title: 'Batch (Production Run)',
+  glossary_batch_desc: 'The specific quantity of identical product units manufactured simultaneously under a single production order.',
+
+  // Developer Credits
+  dev_title: 'About the Developer',
+  dev_studio_name: 'OBStudio',
+  dev_contact_email: 'obgamestudio@gmail.com',
+  dev_edition: 'ProdTrack Flow v1.0 • Desktop Edition (Windows)',
+  dev_tagline: 'Modern UI/UX & High-Performance Industrial Desktop Applications',
+  dev_contact_btn: 'Contact Developer (Email)',
+
   // General UI
   all_levels: 'All Levels',
   all_statuses: 'All Statuses',
