@@ -120,3 +120,18 @@ export interface FilterState {
   level: 'all' | NodeLevel;
   assigneeId: 'all' | string;
 }
+
+export interface ScheduleItem {
+  id: string;
+  title: string;
+  startTime: string; // 'HH:mm' 24-hour format
+  endTime: string;   // 'HH:mm' 24-hour format
+  isEnabled: boolean;
+  isSolemn?: boolean; // Special Flag: Solemn/National Remembrance (locked screen)
+  description?: string;
+}
+
+export interface ScheduleConfig {
+  enabled: boolean;
+  items: ScheduleItem[];
+}

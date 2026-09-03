@@ -1,7 +1,7 @@
 {
   "name": "prodtrack-flow",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "main": "electron/main.cjs",
   "author": "OBStudio <obgamestudio@gmail.com>",
   "description": "ProdTrack Flow - Production Execution & Visual BOM Hierarchy System",

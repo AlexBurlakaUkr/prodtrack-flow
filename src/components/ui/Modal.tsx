@@ -10,6 +10,7 @@ interface ModalProps {
   subtitle?: React.ReactNode;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  headerExtra?: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full';
   className?: string;
 }
@@ -21,6 +22,7 @@ export const Modal: React.FC<ModalProps> = ({
   subtitle,
   children,
   footer,
+  headerExtra,
   size = 'lg',
   className,
 }) => {
@@ -67,8 +69,8 @@ export const Modal: React.FC<ModalProps> = ({
         )}
       >
         {/* Header */}
-        <div className="flex items-start justify-between px-6 py-5 border-b border-black/10 dark:border-white/10 shrink-0">
-          <div className="min-w-0 pr-4">
+        <div className="flex items-start justify-between px-6 py-5 border-b border-black/10 dark:border-white/10 shrink-0 gap-3">
+          <div className="min-w-0 pr-2">
             <h3 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight leading-snug">
               {title}
             </h3>
@@ -78,12 +80,16 @@ export const Modal: React.FC<ModalProps> = ({
               </p>
             )}
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors shrink-0"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {headerExtra}
+            <button
+              onClick={onClose}
+              className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors shrink-0"
+              title="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Content Body */}

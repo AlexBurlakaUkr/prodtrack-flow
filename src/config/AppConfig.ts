@@ -3,11 +3,11 @@
  * Contains all data-driven constants, thresholds, level definitions, and visual presets.
  */
 
-import { Assignee } from '../types';
+import { Assignee, ScheduleConfig } from '../types';
 
 export const APP_CONFIG = {
   APP_NAME: 'ProdTrack Flow',
-  APP_VERSION: '1.1.0',
+  APP_VERSION: '1.0.1',
   // Salted SHA-256 Hash of Master Password (Plaintext is NEVER stored in binary/bundle)
   MASTER_PASSWORD_HASH: 'f5d19a0bcbaf0e1522f08472b7d313406da16f1251f6b5766e5553ed67780669',
   DEFAULT_PROJECT_ID: 'proj-tesla-model3-battery',
@@ -108,4 +108,44 @@ export const APP_CONFIG = {
     { id: 'usr-4', name: 'Elena Kovalenko', role: 'BMS Firmware Lead', email: 'e.kovalenko@prodflow.io', initials: 'EK', color: '#ec4899', avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80' },
     { id: 'usr-5', name: 'David Tanaka', role: 'High-Voltage Safety Lead', email: 'd.tanaka@prodflow.io', initials: 'DT', color: '#f59e0b', avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=120&auto=format&fit=crop&q=80' },
   ] as Assignee[],
+
+  // Default Production Timetable & Work Breaks
+  DEFAULT_SCHEDULE_CONFIG: {
+    enabled: true,
+    items: [
+      {
+        id: 'sched-remembrance-minute',
+        title: 'Хвилина мовчання',
+        startTime: '09:00',
+        endTime: '09:01',
+        isEnabled: true,
+        isSolemn: true,
+        description: "Вшановуємо пам'ять полеглих захисників і захисниць України",
+      },
+      {
+        id: 'sched-morning-break',
+        title: 'Ранкова перерва',
+        startTime: '11:00',
+        endTime: '11:10',
+        isEnabled: true,
+        isSolemn: false,
+      },
+      {
+        id: 'sched-lunch-break',
+        title: 'Обідня перерва',
+        startTime: '13:00',
+        endTime: '14:00',
+        isEnabled: true,
+        isSolemn: false,
+      },
+      {
+        id: 'sched-evening-break',
+        title: 'Вечірня перерва',
+        startTime: '16:00',
+        endTime: '16:10',
+        isEnabled: true,
+        isSolemn: false,
+      },
+    ],
+  } as ScheduleConfig,
 };

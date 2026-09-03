@@ -15,7 +15,7 @@ export async function exportDatabaseToJson(): Promise<string> {
   const orders = await db.orders.toArray();
 
   const snapshot: DatabaseSnapshot = {
-    version: '1.0.0',
+    version: '1.0.1',
     exportedAt: new Date().toISOString(),
     projects,
     nodes,

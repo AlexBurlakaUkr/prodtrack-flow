@@ -39,6 +39,7 @@ import { SettingsModal } from './components/modals/SettingsModal';
 import { ProjectModal } from './components/modals/ProjectModal';
 import { FactoryResetDialog } from './components/modals/FactoryResetDialog';
 import { ActivationGate } from './components/auth/ActivationGate';
+import { ScheduleOverlay } from './components/schedule/ScheduleOverlay';
 import { differenceInDays, parseISO } from 'date-fns';
 
 export const App: React.FC = () => {
@@ -568,6 +569,9 @@ export const App: React.FC = () => {
         onClose={() => setFactoryResetOpen(false)}
         onConfirmReset={handleConfirmFactoryReset}
       />
+
+      {/* Automated Work Schedule & Breaks Overlay System */}
+      <ScheduleOverlay />
     </div>
   );
 };

@@ -35,6 +35,7 @@ import { Avatar } from '../ui/Avatar';
 import { exportDatabaseToJson, importDatabaseFromJson } from '../../services/exportImport';
 import { db } from '../../services/db';
 import obStudioLogo from '../../assets/LogoOBStudi512x512.png';
+import { ScheduleSettingsTab } from '../schedule/ScheduleSettingsTab';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -67,7 +68,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [activeTab, setActiveTab] = useState<
-    'appearance' | 'team' | 'glossary' | 'demo' | 'storage' | 'developer'
+    'appearance' | 'schedule' | 'team' | 'glossary' | 'demo' | 'storage' | 'developer'
   >('appearance');
   const [importStatus, setImportStatus] = useState<string | null>(null);
 
@@ -187,6 +188,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       title={t('settings_title')}
       subtitle="Customize visual aesthetics, team rosters, terminology reference and developer credits"
       size="xl"
+      headerExtra={
+        <button
+          onClick={() => setActiveTab('developer')}
+          className={`py-2 px-3.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shrink-0 ${
+            activeTab === 'developer'
+              ? 'bg-gradient-to-r from-purple-600 via-pink-600 to-rose-600 text-white shadow-pink-500/30 ring-2 ring-pink-400/50'
+              : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-purple-600/20 hover:scale-105'
+          }`}
+          title={t('tab_developer')}
+        >
+          <Code2 className="w-3.5 h-3.5 text-purple-200" />
+          <span>{t('tab_developer')}</span>
+        </button>
+      }
       footer={
         <button
           onClick={onClose}
@@ -209,6 +224,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           >
             <Palette className="w-3.5 h-3.5" />
             <span>{t('tab_appearance')}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('schedule')}
+            className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 ${
+              activeTab === 'schedule'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5 text-indigo-300" />
+            <span>{t('tab_schedule')}</span>
           </button>
 
           <button
@@ -257,18 +284,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           >
             <Download className="w-3.5 h-3.5" />
             <span>{t('tab_storage')}</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('developer')}
-            className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 ${
-              activeTab === 'developer'
-                ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Code2 className="w-3.5 h-3.5 text-purple-300" />
-            <span>{t('tab_developer')}</span>
           </button>
         </div>
 
@@ -379,6 +394,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </div>
         )}
+
+        {/* Tab: Work Schedule & Breaks (Розклад та перерви) */}
+        {activeTab === 'schedule' && <ScheduleSettingsTab />}
 
         {/* Tab 2: Team Management */}
         {activeTab === 'team' && (

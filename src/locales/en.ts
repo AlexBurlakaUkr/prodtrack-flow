@@ -294,7 +294,7 @@ export const en = {
   dev_title: 'About the Developer',
   dev_studio_name: 'OBStudio',
   dev_contact_email: 'obgamestudio@gmail.com',
-  dev_edition: 'ProdTrack Flow v1.0 • Desktop Edition (Windows)',
+  dev_edition: 'v1.0.1 • Desktop Edition (Windows)',
   dev_tagline: 'Modern UI/UX & High-Performance Industrial Desktop Applications',
   dev_contact_btn: 'Contact Developer (Email)',
 
@@ -322,6 +322,33 @@ export const en = {
   save_success: 'Saved successfully!',
   close: 'Close',
   required_field: 'This field is required',
+
+  // Schedule & Break Overlays
+  tab_schedule: 'Work Schedule & Breaks',
+  schedule_title: 'Production Schedule & Break Rules',
+  schedule_subtitle: 'Automated shop-floor pause system, scheduled rest intervals, and national remembrance',
+  schedule_master_toggle: 'Automated Break System',
+  schedule_master_toggle_desc: 'Trigger fullscreen solemn overlays and elegant glass pause modals at scheduled hours',
+  schedule_add_event: 'Add Event',
+  schedule_add_modal_title: 'New Recurring Daily Break',
+  schedule_event_title: 'Event Title',
+  schedule_start_time: 'Start Time',
+  schedule_end_time: 'End Time',
+  schedule_is_solemn: 'Solemn Remembrance (Locked Screen)',
+  schedule_solemn_badge: 'National Remembrance',
+  schedule_break_badge: 'Scheduled Break',
+  schedule_restore_defaults: 'Restore Standard Timetable',
+  schedule_preview_btn: 'Test Preview',
+  solemn_title: 'Хвилина мовчання',
+  solemn_subtitle: "Вшановуємо пам'ять полеглих захисників і захисниць України",
+  solemn_unlock_notice: 'Dashboard will automatically unlock at',
+  break_remaining: 'Remaining',
+  break_minimize: 'Minimize to corner',
+  break_expand: 'Expand',
+  break_resume_work: 'Resume Work',
+  break_elapsed: 'Elapsed',
+  break_duration: 'Duration',
+  break_progress: 'Break Progress',
 };
 
 export type TranslationKey = keyof typeof en;
