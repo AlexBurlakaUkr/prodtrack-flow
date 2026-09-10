@@ -68,6 +68,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const { t, language, setLanguage } = useI18n();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const avatarFileInputRef = useRef<HTMLInputElement>(null);
 
   const [activeTab, setActiveTab] = useState<
     'appearance' | 'schedule' | 'delays' | 'team' | 'glossary' | 'demo' | 'storage' | 'developer'
@@ -94,6 +95,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     '#06b6d4', // Cyan
   ];
 
+  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size exceeds 5MB limit');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setMemberAvatarUrl(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveAvatar = () => {
+    setMemberAvatarUrl('');
+    if (avatarFileInputRef.current) {
+      avatarFileInputRef.current.value = '';
+    }
+  };
+
   const handleOpenAddMember = () => {
     setEditingMember(null);
     setMemberName('');
@@ -101,6 +125,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setMemberEmail('');
     setMemberAvatarUrl('');
     setMemberColor(COLOR_PALETTES[Math.floor(Math.random() * COLOR_PALETTES.length)]);
+    if (avatarFileInputRef.current) avatarFileInputRef.current.value = '';
     setIsMemberFormOpen(true);
   };
 
@@ -111,6 +136,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setMemberEmail(member.email || '');
     setMemberAvatarUrl(member.avatarUrl || '');
     setMemberColor(member.color || '#6366f1');
+    if (avatarFileInputRef.current) avatarFileInputRef.current.value = '';
     setIsMemberFormOpen(true);
   };
 
@@ -482,17 +508,98 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-semibold text-slate-300 mb-1.5">
                       {t('member_avatar')}
                     </label>
-                    <input
-                      type="text"
-                      value={memberAvatarUrl}
-                      onChange={(e) => setMemberAvatarUrl(e.target.value)}
-                      placeholder="https://... (or leave empty for initials)"
-                      className="w-full px-3 py-1.5 text-xs rounded-xl bg-slate-900 border border-white/10 text-white outline-none"
-                    />
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                      {/* Photo preview (like in NodeEditModal) */}
+                      {memberAvatarUrl ? (
+                        <div className="relative w-16 h-16 rounded-2xl bg-black/40 border border-white/20 p-1 shrink-0 overflow-hidden flex items-center justify-center group shadow-md">
+                          <img
+                            src={memberAvatarUrl}
+                            alt="Avatar Preview"
+                            className="w-full h-full object-cover rounded-xl"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleRemoveAvatar}
+                            className="absolute inset-0 bg-rose-900/80 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-xl"
+                            title={t('remove_photo')}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            <span className="text-[9px] mt-0.5 font-bold">{t('remove_photo')}</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <div
+                          onClick={() => avatarFileInputRef.current?.click()}
+                          className="w-full sm:w-52 p-3 border-2 border-dashed border-white/20 rounded-xl hover:border-indigo-400/50 hover:bg-white/5 transition-all cursor-pointer flex flex-col items-center justify-center text-center shrink-0"
+                        >
+                          <Upload className="w-5 h-5 text-indigo-400 mb-1" />
+                          <span className="text-[11px] font-bold text-slate-200">
+                            {t('upload_photo')}
+                          </span>
+                          <span className="text-[9px] text-slate-400">
+                            {t('drop_photo_hint')}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* URL input and action buttons */}
+                      <div className="flex-1 w-full space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={
+                              memberAvatarUrl.startsWith('data:')
+                                ? t('photo_uploaded_from_pc')
+                                : memberAvatarUrl
+                            }
+                            onChange={(e) => setMemberAvatarUrl(e.target.value)}
+                            readOnly={memberAvatarUrl.startsWith('data:')}
+                            placeholder={t('avatar_url_or_upload_hint')}
+                            className={`flex-1 px-3 py-1.5 text-xs rounded-xl border border-white/10 text-white outline-none ${
+                              memberAvatarUrl.startsWith('data:')
+                                ? 'bg-indigo-950/40 text-indigo-300 font-mono text-[11px]'
+                                : 'bg-slate-900'
+                            }`}
+                          />
+                          {memberAvatarUrl && (
+                            <button
+                              type="button"
+                              onClick={handleRemoveAvatar}
+                              className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/25 text-rose-400 shrink-0 transition-colors"
+                              title={t('remove_photo')}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => avatarFileInputRef.current?.click()}
+                            className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-slate-300 text-[11px] font-semibold flex items-center gap-1.5 transition-all"
+                          >
+                            <Upload className="w-3 h-3 text-indigo-400" />
+                            <span>{t('upload_photo')}</span>
+                          </button>
+                          <span className="text-[10px] text-slate-400">
+                            PNG, JPG, WebP (max 5MB)
+                          </span>
+                        </div>
+                      </div>
+
+                      <input
+                        ref={avatarFileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAvatarUpload}
+                        className="hidden"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -527,7 +634,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     onClick={handleSaveMember}
                     className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm"
                   >
-                    {t('save')}
+                    {t('save_changes')}
                   </button>
                 </div>
               </div>

@@ -28,6 +28,7 @@ interface BomTreeGridProps {
   onAddChild: (parentNode: BOMNode) => void;
   onEdit: (node: BOMNode) => void;
   onDelete: (node: BOMNode) => void;
+  containerRef?: React.Ref<HTMLDivElement>;
 }
 
 export const BomTreeGrid: React.FC<BomTreeGridProps> = ({
@@ -38,6 +39,7 @@ export const BomTreeGrid: React.FC<BomTreeGridProps> = ({
   onAddChild,
   onEdit,
   onDelete,
+  containerRef,
 }) => {
   const { t } = useI18n();
   const unitHours = t('norm_hours_unit');
@@ -77,7 +79,10 @@ export const BomTreeGrid: React.FC<BomTreeGridProps> = ({
   }, [nodes, filteredNodes, expandedNodes, childrenLookup]);
 
   return (
-    <div className="w-full overflow-x-auto custom-scrollbar rounded-3xl border border-white/10 shadow-glass-md">
+    <div
+      ref={containerRef}
+      className="w-full overflow-x-auto custom-scrollbar rounded-3xl border border-white/10 shadow-glass-md"
+    >
       <table className="w-full text-left border-collapse min-w-[980px]">
         {/* Table Header */}
         <thead>

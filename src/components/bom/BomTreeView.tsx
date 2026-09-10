@@ -16,6 +16,8 @@ import {
   Network,
   Table,
   ListTree,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { BOMNode, NodeLevel, NodeStatus, Project, ProductionOrder } from '../../types';
 import { useI18n } from '../../locales';
@@ -105,6 +107,71 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
 
   // Delete Confirm Modal
   const [deleteConfirmNode, setDeleteConfirmNode] = useState<BOMNode | null>(null);
+
+  // Horizontal Scroll Metrics for the Top Navigation Slider
+  const [scrollMetrics, setScrollMetrics] = useState({
+    scrollLeft: 0,
+    maxScrollLeft: 0,
+    scrollWidth: 0,
+    clientWidth: 0,
+    canScroll: false,
+  });
+
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+
+    const updateMetrics = () => {
+      const scrollLeft = el.scrollLeft;
+      const scrollWidth = el.scrollWidth;
+      const clientWidth = el.clientWidth;
+      const maxScrollLeft = Math.max(0, scrollWidth - clientWidth);
+      setScrollMetrics({
+        scrollLeft,
+        maxScrollLeft,
+        scrollWidth,
+        clientWidth,
+        canScroll: maxScrollLeft > 10,
+      });
+    };
+
+    updateMetrics();
+    el.addEventListener('scroll', updateMetrics, { passive: true });
+    window.addEventListener('resize', updateMetrics);
+
+    const ro = new ResizeObserver(() => {
+      updateMetrics();
+    });
+    ro.observe(el);
+    if (el.firstElementChild) {
+      ro.observe(el.firstElementChild);
+    }
+
+    return () => {
+      el.removeEventListener('scroll', updateMetrics);
+      window.removeEventListener('resize', updateMetrics);
+      ro.disconnect();
+    };
+  }, [viewMode, zoomScale, expandedNodes, scopedNodes]);
+
+  const handleSliderChange = (newLeft: number) => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollLeft = newLeft;
+      setScrollMetrics((prev) => ({
+        ...prev,
+        scrollLeft: newLeft,
+      }));
+    }
+  };
+
+  const handleScrollStep = (delta: number) => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollBy({
+        left: delta,
+        behavior: 'smooth',
+      });
+    }
+  };
 
   /**
    * Smart Accordion Expansion:
@@ -530,6 +597,59 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
         </div>
       </GlassCard>
 
+      {/* Sticky Top Horizontal Navigation Slider (Повзунок гортання дерева зверху) */}
+      {scrollMetrics.canScroll && (
+        <div className="sticky top-2 z-20 w-full mb-3 p-2.5 rounded-2xl bg-white/80 dark:bg-slate-900/80 border border-white/20 dark:border-white/10 backdrop-blur-xl shadow-glass-md flex items-center gap-3 transition-all animate-fadeIn">
+          {/* Quick scroll left button */}
+          <button
+            onClick={() => handleScrollStep(-300)}
+            disabled={scrollMetrics.scrollLeft <= 2}
+            className="p-1.5 rounded-xl bg-white/10 dark:bg-slate-800/60 hover:bg-white/20 dark:hover:bg-slate-700/60 disabled:opacity-30 disabled:pointer-events-none text-slate-700 dark:text-slate-300 hover:text-white transition-all shrink-0 border border-white/10"
+            title={t('scroll_left')}
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+
+          {/* Slider track with percentage preview */}
+          <div className="flex-1 relative flex items-center group">
+            <input
+              type="range"
+              min={0}
+              max={Math.max(1, scrollMetrics.maxScrollLeft)}
+              value={scrollMetrics.scrollLeft}
+              onChange={(e) => handleSliderChange(Number(e.target.value))}
+              className="w-full h-2.5 rounded-lg appearance-none cursor-ew-resize bg-slate-200 dark:bg-slate-700/70 accent-indigo-500 hover:accent-indigo-400 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+              title={t('horizontal_scroll_slider')}
+            />
+          </div>
+
+          {/* Quick scroll right button */}
+          <button
+            onClick={() => handleScrollStep(300)}
+            disabled={scrollMetrics.scrollLeft >= scrollMetrics.maxScrollLeft - 2}
+            className="p-1.5 rounded-xl bg-white/10 dark:bg-slate-800/60 hover:bg-white/20 dark:hover:bg-slate-700/60 disabled:opacity-30 disabled:pointer-events-none text-slate-700 dark:text-slate-300 hover:text-white transition-all shrink-0 border border-white/10"
+            title={t('scroll_right')}
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+
+          {/* Center Tree Button */}
+          <button
+            onClick={handleCenterView}
+            className="px-2.5 py-1.5 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-400 hover:text-indigo-300 text-xs font-semibold flex items-center gap-1.5 transition-all shrink-0"
+            title={t('reset_zoom')}
+          >
+            <AlignCenter className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">{t('reset_zoom')}</span>
+          </button>
+
+          {/* Percentage badge */}
+          <span className="text-[10px] font-mono font-bold text-slate-600 dark:text-slate-400 shrink-0 min-w-[36px] text-right">
+            {Math.round((scrollMetrics.scrollLeft / Math.max(1, scrollMetrics.maxScrollLeft)) * 100)}%
+          </span>
+        </div>
+      )}
+
       {/* View Mode 1: Vertical Tree View (Default) */}
       {viewMode === 'tree-vertical' && (
         <div className="relative w-full overflow-hidden bg-transparent animate-fadeIn">
@@ -584,6 +704,7 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
       {viewMode === 'tree-horizontal' && (
         <div className="relative w-full overflow-hidden bg-transparent animate-fadeIn">
           <div
+            ref={scrollContainerRef}
             className="w-full overflow-x-auto custom-scrollbar py-6 px-4 sm:px-8 bg-transparent"
             style={{
               WebkitMaskImage:
@@ -620,6 +741,7 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
       {viewMode === 'treegrid' && (
         <div className="w-full animate-fadeIn">
           <BomTreeGrid
+            containerRef={scrollContainerRef}
             nodes={scopedNodes}
             filteredNodes={filteredNodes}
             expandedNodes={expandedNodes}
