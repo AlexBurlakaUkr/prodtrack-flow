@@ -75,6 +75,13 @@ export function recalculateNodeRollups(nodes: BOMNode[]): BOMNode[] {
       const node = nodeMap.get(id);
       if (!node) return;
 
+      const ownHours =
+        typeof node.normHours === 'number' && node.normHours >= 0 ? node.normHours : 1;
+      const ownBaseHours =
+        typeof node.baseNormHours === 'number' && node.baseNormHours >= 0
+          ? node.baseNormHours
+          : ownHours;
+
       const childIds = childrenMap.get(id);
       if (childIds && childIds.length > 0) {
         let totalChildHours = 0;
@@ -87,12 +94,24 @@ export function recalculateNodeRollups(nodes: BOMNode[]): BOMNode[] {
         childIds.forEach((childId) => {
           const childNode = nodeMap.get(childId);
           if (childNode) {
-            const hours = childNode.normHours && childNode.normHours > 0 ? childNode.normHours : 1;
-            const baseH = childNode.baseNormHours && childNode.baseNormHours > 0 ? childNode.baseNormHours : hours;
+            // Child's effective total hours (its own hours + all its children hours)
+            const childH =
+              typeof childNode.totalNormHours === 'number' && childNode.totalNormHours > 0
+                ? childNode.totalNormHours
+                : childNode.normHours && childNode.normHours > 0
+                ? childNode.normHours
+                : 1;
 
-            totalChildHours += hours;
-            totalChildBaseHours += baseH;
-            weightedProgressSum += childNode.progress * hours;
+            const childBaseH =
+              typeof childNode.totalBaseNormHours === 'number' && childNode.totalBaseNormHours > 0
+                ? childNode.totalBaseNormHours
+                : childNode.baseNormHours && childNode.baseNormHours > 0
+                ? childNode.baseNormHours
+                : childH;
+
+            totalChildHours += childH;
+            totalChildBaseHours += childBaseH;
+            weightedProgressSum += (childNode.progress || 0) * childH;
 
             if (childNode.status === 'delayed') {
               hasDelayedChild = true;
@@ -106,18 +125,21 @@ export function recalculateNodeRollups(nodes: BOMNode[]): BOMNode[] {
           }
         });
 
-        // Dynamic summation of child hours for parent node
-        node.normHours = Math.round(totalChildHours * 10) / 10;
-        node.baseNormHours = Math.round(totalChildBaseHours * 10) / 10;
-        node.weight = node.normHours;
+        // Formula: Загальні нормо-години = Нормо-година конкретного вузла цього ж вузла + час усіх дочірніх об'єктів
+        node.totalNormHours = Math.round((ownHours + totalChildHours) * 10) / 10;
+        node.totalBaseNormHours = Math.round((ownBaseHours + totalChildBaseHours) * 10) / 10;
+        // Keep weight aligned with total hours for backward compatibility
+        node.weight = node.totalNormHours;
 
-        // Weighted progress percentage by norm-hours
+        // Weighted progress percentage combining own progress + child tasks
+        const combinedHours = ownHours + totalChildHours;
+        const totalProgressPoints = weightedProgressSum + (node.progress || 0) * ownHours;
         const computedProgress =
-          totalChildHours > 0 ? Math.round(weightedProgressSum / totalChildHours) : 0;
+          combinedHours > 0 ? Math.round(totalProgressPoints / combinedHours) : 0;
         node.progress = Math.min(100, Math.max(0, computedProgress));
 
         // Status adjustment
-        if (node.progress === 100 || allCompleted) {
+        if (node.progress === 100 || (allCompleted && node.progress === 100)) {
           node.status = 'completed';
         } else if (hasDelayedChild && node.status !== 'completed') {
           node.status = 'delayed';
@@ -126,6 +148,11 @@ export function recalculateNodeRollups(nodes: BOMNode[]): BOMNode[] {
         } else if (allPending && node.progress === 0) {
           node.status = 'pending';
         }
+      } else {
+        // Leaf node with no children: totalNormHours equals own normHours
+        node.totalNormHours = ownHours;
+        node.totalBaseNormHours = ownBaseHours;
+        node.weight = ownHours;
       }
     });
 

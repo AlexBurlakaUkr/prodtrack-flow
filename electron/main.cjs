@@ -1,5 +1,50 @@
 const { app, BrowserWindow, Menu } = require('electron');
 const path = require('path');
+const fs = require('fs');
+
+// Ensure app name is consistently 'prodtrack-flow' across all builds
+app.name = 'prodtrack-flow';
+
+/**
+ * Configure and guarantee persistent userData path across versions
+ * Supports both Installed (NSIS) and Portable (.exe) releases
+ */
+function setupUserDataDirectory() {
+  const appData = app.getPath('appData');
+  const canonicalUserData = path.join(appData, 'prodtrack-flow');
+  const altUserData = path.join(appData, 'ProdTrack Flow');
+
+  let chosenPath = canonicalUserData;
+
+  // Portable mode check:
+  // If the user created or placed a local 'data' folder next to the portable executable, use it.
+  // Otherwise, default to canonical %APPDATA%\prodtrack-flow where v1.0.1 stored all its data.
+  if (process.env.PORTABLE_EXECUTABLE_DIR) {
+    const portableDataDir = path.join(process.env.PORTABLE_EXECUTABLE_DIR, 'data');
+    if (fs.existsSync(portableDataDir)) {
+      chosenPath = portableDataDir;
+    }
+  }
+
+  // Automatic data recovery/migration from alternative naming 'ProdTrack Flow' to 'prodtrack-flow'
+  try {
+    const canonicalIndexedDB = path.join(canonicalUserData, 'IndexedDB');
+    const altIndexedDB = path.join(altUserData, 'IndexedDB');
+
+    if (!fs.existsSync(canonicalIndexedDB) && fs.existsSync(altIndexedDB)) {
+      if (!fs.existsSync(canonicalUserData)) {
+        fs.mkdirSync(canonicalUserData, { recursive: true });
+      }
+      fs.cpSync(altUserData, canonicalUserData, { recursive: true });
+    }
+  } catch (err) {
+    console.error('Data migration check notice:', err);
+  }
+
+  app.setPath('userData', chosenPath);
+}
+
+setupUserDataDirectory();
 
 let mainWindow = null;
 

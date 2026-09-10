@@ -113,6 +113,8 @@ export const BomTreeGrid: React.FC<BomTreeGridProps> = ({
               typeof node.normHours === 'number' ? node.normHours : node.weight || 0;
             const baseNormHours =
               typeof node.baseNormHours === 'number' ? node.baseNormHours : normHours;
+            const totalNormHours =
+              typeof node.totalNormHours === 'number' ? node.totalNormHours : normHours;
             const isScaled = Boolean(
               node.orderId && baseNormHours > 0 && normHours !== baseNormHours
             );
@@ -216,22 +218,38 @@ export const BomTreeGrid: React.FC<BomTreeGridProps> = ({
 
                 {/* 4. Norm-Hours */}
                 <td className="py-3 px-3">
-                  <span
-                    className="inline-flex items-center gap-1 text-[11px] font-mono font-bold px-2 py-0.5 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-300"
-                    title={
-                      isScaled
-                        ? `Scaled: ${normHours}h (Base: ${baseNormHours}h × batch size)`
-                        : undefined
-                    }
-                  >
-                    <Clock className="w-3 h-3 text-sky-400" />
-                    <span>
-                      {normHours} {unitHours}
+                  <div className="flex flex-col gap-1 items-start">
+                    <span
+                      className="inline-flex items-center gap-1 text-[11px] font-mono font-bold px-2 py-0.5 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-300"
+                      title={
+                        isScaled
+                          ? `Scaled: ${normHours}h (Base: ${baseNormHours}h × batch size)`
+                          : `${t('node_own_norm_hours')}: ${normHours} ${unitHours}`
+                      }
+                    >
+                      <Clock className="w-3 h-3 text-sky-400" />
+                      <span>
+                        {hasChildren
+                          ? t('node_hours_badge', { hours: normHours, unit: unitHours })
+                          : `${normHours} ${unitHours}`}
+                      </span>
+                      {isScaled && (
+                        <span className="text-[9px] text-sky-400/80">({baseNormHours}×)</span>
+                      )}
                     </span>
-                    {isScaled && (
-                      <span className="text-[9px] text-sky-400/80">({baseNormHours}×)</span>
+
+                    {hasChildren && (
+                      <span
+                        className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-indigo-500/20 border border-indigo-500/35 text-indigo-300"
+                        title={`${t('total_norm_hours')}: ${totalNormHours} ${unitHours} (${t('total_norm_hours_hint')})`}
+                      >
+                        <span className="text-[9px] font-extrabold text-indigo-400">∑</span>
+                        <span>
+                          {t('total_hours_badge', { hours: totalNormHours, unit: unitHours })}
+                        </span>
+                      </span>
                     )}
-                  </span>
+                  </div>
                 </td>
 
                 {/* 5. Assignees */}

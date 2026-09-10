@@ -32,6 +32,7 @@ import { ProgressBar } from '../ui/ProgressBar';
 import { Avatar, StackedAvatars } from '../ui/Avatar';
 import { StatusBadge } from '../ui/StatusBadge';
 import { differenceInDays, parseISO } from 'date-fns';
+import { getDelayConfig, evaluateNodeDelay } from '../../services/delayService';
 
 interface AnalyticsDashboardProps {
   project: Project;
@@ -43,6 +44,7 @@ interface AnalyticsDashboardProps {
 export type AnalyticsWidgetId =
   | 'kpi_overview'
   | 'bottlenecks'
+  | 'delay_analysis'
   | 'progress_by_level'
   | 'detailed_components'
   | 'team_workload';
@@ -50,6 +52,7 @@ export type AnalyticsWidgetId =
 const ALL_WIDGETS: { id: AnalyticsWidgetId; labelKey: string }[] = [
   { id: 'kpi_overview', labelKey: 'widget_kpi_overview' },
   { id: 'bottlenecks', labelKey: 'widget_bottlenecks' },
+  { id: 'delay_analysis', labelKey: 'widget_delay_analysis' },
   { id: 'progress_by_level', labelKey: 'widget_progress_by_level' },
   { id: 'detailed_components', labelKey: 'widget_detailed_components' },
   { id: 'team_workload', labelKey: 'widget_team_workload' },
@@ -74,6 +77,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
     return new Set<AnalyticsWidgetId>([
       'kpi_overview',
       'bottlenecks',
+      'delay_analysis',
       'progress_by_level',
       'detailed_components',
       'team_workload',
@@ -212,6 +216,100 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       bottlenecks.reduce((acc, curr) => acc + (curr.node.normHours || 0), 0) * 10
     ) / 10;
   }, [bottlenecks]);
+
+  // Overdue and Delay Root Cause Analysis
+  const delayConfig = useMemo(() => getDelayConfig(), []);
+
+  const delayAnalysis = useMemo(() => {
+    const overdueItems: {
+      node: BOMNode;
+      daysOverdue: number;
+      reasons: string[];
+      notes?: string;
+    }[] = [];
+
+    nodes.forEach((node) => {
+      const evaluation = evaluateNodeDelay(node, delayConfig);
+      const isOverdue =
+        evaluation.isOverdue || (node.status === 'delayed' && node.progress < 100);
+      if (isOverdue) {
+        overdueItems.push({
+          node,
+          daysOverdue: Math.max(1, Math.abs(evaluation.daysDiff)),
+          reasons: node.delayReasons || [],
+          notes: node.delayNotes,
+        });
+      }
+    });
+
+    // Sort by most days overdue first, then lowest progress, then highest norm hours
+    overdueItems.sort(
+      (a, b) =>
+        b.daysOverdue - a.daysOverdue ||
+        a.node.progress - b.node.progress ||
+        (b.node.normHours || 0) - (a.node.normHours || 0)
+    );
+
+    const top10Overdue = overdueItems.slice(0, 10);
+    const totalOverdueCount = overdueItems.length;
+
+    const totalOverdueHours =
+      Math.round(
+        overdueItems.reduce((acc, curr) => acc + (curr.node.normHours || 0), 0) * 10
+      ) / 10;
+
+    const avgDelayDays =
+      totalOverdueCount > 0
+        ? Math.round(
+            (overdueItems.reduce((acc, curr) => acc + curr.daysOverdue, 0) /
+              totalOverdueCount) *
+              10
+          ) / 10
+        : 0;
+
+    // Reason frequency distribution
+    const reasonCounts: Record<string, number> = {};
+    delayConfig.reasons.forEach((r) => {
+      reasonCounts[r.label] = 0;
+    });
+
+    let totalLoggedReasonsCount = 0;
+    nodes.forEach((n) => {
+      if (n.delayReasons && n.delayReasons.length > 0) {
+        n.delayReasons.forEach((r) => {
+          reasonCounts[r] = (reasonCounts[r] || 0) + 1;
+          totalLoggedReasonsCount++;
+        });
+      }
+    });
+
+    const sortedReasons = Object.entries(reasonCounts)
+      .map(([label, count]) => ({
+        label,
+        count,
+        percentage:
+          totalLoggedReasonsCount > 0
+            ? Math.round((count / totalLoggedReasonsCount) * 100)
+            : 0,
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    const topReason =
+      sortedReasons.length > 0 && sortedReasons[0].count > 0
+        ? sortedReasons[0].label
+        : '—';
+
+    return {
+      overdueItems,
+      top10Overdue,
+      totalOverdueCount,
+      totalOverdueHours,
+      avgDelayDays,
+      sortedReasons,
+      totalLoggedReasonsCount,
+      topReason,
+    };
+  }, [nodes, delayConfig]);
 
   // Detailed Components list filtered and sorted
   const sortedDetailedComponents = useMemo(() => {
@@ -503,6 +601,209 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                 </p>
               </div>
             )}
+          </div>
+        );
+
+      case 'delay_analysis':
+        return (
+          <div
+            className={`space-y-6 pt-1 ${
+              isFullscreen ? 'max-w-7xl mx-auto w-full py-6 space-y-8' : ''
+            }`}
+          >
+            {/* KPI Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex flex-col justify-between">
+                <span className="text-xs font-semibold text-rose-300 flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                  {t('overdue_nodes_count')}
+                </span>
+                <div className="my-2">
+                  <span className="text-3xl sm:text-4xl font-black text-rose-400 tabular-nums">
+                    {delayAnalysis.totalOverdueCount}
+                  </span>
+                  <span className="text-xs text-rose-300/80 ml-2 font-medium">
+                    / {nodes.length}
+                  </span>
+                </div>
+                <span className="text-[11px] text-slate-400">
+                  {delayAnalysis.totalOverdueHours} {t('norm_hours_unit')} {t('hours_at_risk').toLowerCase()}
+                </span>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex flex-col justify-between">
+                <span className="text-xs font-semibold text-amber-300 flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-amber-400" />
+                  {t('avg_delay_days')}
+                </span>
+                <div className="my-2">
+                  <span className="text-3xl sm:text-4xl font-black text-amber-400 tabular-nums">
+                    {delayAnalysis.avgDelayDays}
+                  </span>
+                  <span className="text-xs text-amber-300/80 ml-2 font-medium">
+                    {t('scale_day').toLowerCase()}
+                  </span>
+                </div>
+                <span className="text-[11px] text-slate-400">
+                  {t('risk_delayed')}
+                </span>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex flex-col justify-between sm:col-span-2">
+                <span className="text-xs font-semibold text-purple-300 flex items-center gap-1.5">
+                  <Activity className="w-3.5 h-3.5 text-purple-400" />
+                  {t('top_delay_reason')}
+                </span>
+                <div className="my-2">
+                  <span className="text-sm sm:text-base font-bold text-white line-clamp-2">
+                    {delayAnalysis.topReason}
+                  </span>
+                </div>
+                <span className="text-[11px] text-purple-300/80">
+                  {delayAnalysis.totalLoggedReasonsCount > 0
+                    ? `${delayAnalysis.totalLoggedReasonsCount} ${t('delay_reasons_label').toLowerCase()}`
+                    : t('delay_reasons_multi_hint')}
+                </span>
+              </div>
+            </div>
+
+            {/* Main Section: Top 10 Overdue Tasks & Reasons Distribution */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Left: Top 10 Most Critical Overdue Tasks (7 cols) */}
+              <div className="lg:col-span-7 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-rose-500" />
+                    {t('top_10_overdue_tasks')}
+                  </h4>
+                  <span className="text-xs font-mono text-slate-400">
+                    {delayAnalysis.top10Overdue.length} / {delayAnalysis.totalOverdueCount}
+                  </span>
+                </div>
+
+                {delayAnalysis.top10Overdue.length === 0 ? (
+                  <div className="p-8 rounded-2xl bg-white/5 border border-white/10 text-center flex flex-col items-center justify-center">
+                    <CheckCircle2 className="w-12 h-12 text-emerald-400 mb-2 opacity-80" />
+                    <span className="text-sm font-bold text-white">
+                      {t('no_overdue_tasks')}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5 max-h-[480px] overflow-y-auto custom-scrollbar pr-1">
+                    {delayAnalysis.top10Overdue.map((item, idx) => (
+                      <div
+                        key={item.node.id}
+                        className="p-3.5 rounded-2xl bg-white/10 dark:bg-slate-800/40 border border-white/10 hover:border-rose-500/40 transition-all space-y-2"
+                      >
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div className="flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-lg bg-rose-500/20 text-rose-400 text-[11px] font-black flex items-center justify-center font-mono">
+                              #{idx + 1}
+                            </span>
+                            <span className="font-mono text-xs font-bold text-slate-700 dark:text-slate-300">
+                              {item.node.code}
+                            </span>
+                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-white/10 text-slate-400 border border-white/10">
+                              L{item.node.level}
+                            </span>
+                            <span className="text-xs font-bold text-slate-900 dark:text-white truncate max-w-[200px] sm:max-w-[280px]">
+                              {item.node.title}
+                            </span>
+                          </div>
+
+                          <span className="flex items-center gap-1 text-[11px] font-bold text-rose-400 bg-rose-500/20 px-2 py-0.5 rounded-lg border border-rose-500/30">
+                            <AlertTriangle className="w-3 h-3" />
+                            {t('overdue_by_days', { days: item.daysOverdue })}
+                          </span>
+                        </div>
+
+                        {/* Progress Bar & Labor Hours */}
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1">
+                            <ProgressBar progress={item.node.progress} status={item.node.status} size="xs" />
+                          </div>
+                          <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 shrink-0">
+                            {item.node.progress}% • ⏱ {item.node.normHours} {t('norm_hours_unit')}
+                          </span>
+                        </div>
+
+                        {/* Reasons Badges & Assignees */}
+                        <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/5 flex-wrap text-xs">
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {item.reasons.length > 0 ? (
+                              item.reasons.map((r, rIdx) => (
+                                <span
+                                  key={rIdx}
+                                  className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-rose-950/60 border border-rose-500/30 text-rose-300"
+                                >
+                                  {r}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-[10px] italic text-slate-500">
+                                {t('delay_reason_not_specified')}
+                              </span>
+                            )}
+                          </div>
+
+                          <StackedAvatars
+                            assignees={
+                              item.node.assignees && item.node.assignees.length > 0
+                                ? item.node.assignees
+                                : item.node.assignee
+                                ? [item.node.assignee]
+                                : []
+                            }
+                            size="xs"
+                          />
+                        </div>
+
+                        {/* Note snippet */}
+                        {item.notes && (
+                          <p className="text-[11px] text-slate-400 bg-black/20 p-2 rounded-xl border border-white/5 italic">
+                            "{item.notes}"
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Right: Delay Reasons Frequency Distribution (5 cols) */}
+              <div className="lg:col-span-5 space-y-3">
+                <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-indigo-400" />
+                  {t('delay_reasons_distribution')}
+                </h4>
+
+                <div className="p-4 rounded-2xl bg-white/10 dark:bg-slate-800/40 border border-white/10 space-y-4 max-h-[480px] overflow-y-auto custom-scrollbar">
+                  {delayAnalysis.sortedReasons.map((item, idx) => {
+                    const maxCount = Math.max(1, delayAnalysis.sortedReasons[0]?.count || 1);
+                    const barWidth =
+                      item.count > 0 ? Math.max(8, Math.round((item.count / maxCount) * 100)) : 0;
+                    return (
+                      <div key={idx} className="space-y-1.5">
+                        <div className="flex items-start justify-between gap-2 text-xs">
+                          <span className="text-slate-300 font-medium leading-tight">
+                            {item.label}
+                          </span>
+                          <span className="font-mono font-bold text-slate-200 shrink-0 tabular-nums">
+                            {item.count} {item.count > 0 && `(${item.percentage}%)`}
+                          </span>
+                        </div>
+                        <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-rose-500 to-amber-500 rounded-full transition-all duration-500"
+                            style={{ width: `${barWidth}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
           </div>
         );
 
@@ -904,6 +1205,38 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             </GlassCard>
           )}
         </div>
+      )}
+
+      {/* Panel: Delay & Root Cause Analytics */}
+      {visibleWidgets.has('delay_analysis') && (
+        <GlassCard variant="elevated" className="p-5 space-y-4">
+          <div className="flex items-center justify-between border-b border-black/5 dark:border-white/10 pb-3">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-rose-400" />
+              <div>
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+                  {t('widget_delay_analysis')}
+                </h3>
+                <p className="text-[11px] text-slate-400">
+                  {t('top_10_overdue_tasks')} • {t('delay_reasons_distribution')}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs px-2.5 py-1 rounded-full bg-rose-500/20 border border-rose-500/30 text-rose-300 font-bold">
+                {delayAnalysis.totalOverdueCount} {t('overdue_nodes_count').toLowerCase()}
+              </span>
+              <button
+                onClick={() => setFullScreenWidget('delay_analysis')}
+                className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-400 hover:text-white transition-all"
+                title={t('fullscreen_expand')}
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+          {renderWidgetContent('delay_analysis')}
+        </GlassCard>
       )}
 
       {/* Panel 4: Granular Component-by-Component Progress */}

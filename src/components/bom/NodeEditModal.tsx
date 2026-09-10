@@ -10,13 +10,15 @@ import {
   Lock,
   Info,
   Sliders,
+  AlertTriangle,
 } from 'lucide-react';
-import { BOMNode, NodeLevel, NodeStatus, Assignee } from '../../types';
+import { BOMNode, NodeLevel, NodeStatus, Assignee, DelayConfig } from '../../types';
 import { useI18n } from '../../locales';
 import { APP_CONFIG } from '../../config/AppConfig';
 import { Modal } from '../ui/Modal';
 import { Avatar } from '../ui/Avatar';
 import { db } from '../../services/db';
+import { getDelayConfig, evaluateNodeDelay } from '../../services/delayService';
 
 interface NodeEditModalProps {
   isOpen: boolean;
@@ -58,12 +60,49 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
   const [batchQuantity, setBatchQuantity] = useState(1);
   const [unit, setUnit] = useState('pcs');
   const [normHours, setNormHours] = useState<number>(8);
+  const [childrenTotalHours, setChildrenTotalHours] = useState<number>(0);
   const [notes, setNotes] = useState('');
   const [image, setImage] = useState<string | undefined>(undefined);
+  const [delayConfig, setDelayConfig] = useState<DelayConfig>(() => getDelayConfig());
+  const [delayReasons, setDelayReasons] = useState<string[]>([]);
+  const [delayNotes, setDelayNotes] = useState<string>('');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Is this node locked for direct progress/hours editing?
+  // Is this node locked for direct progress slider editing?
   const isParentNode = Boolean(nodeToEdit && hasChildren);
+
+  // Sync delayConfig on open
+  useEffect(() => {
+    if (isOpen) {
+      setDelayConfig(getDelayConfig());
+    }
+  }, [isOpen]);
+
+  // Load direct children's hours when editing parent node
+  useEffect(() => {
+    const fetchChildrenHours = async () => {
+      if (!nodeToEdit || !hasChildren) {
+        setChildrenTotalHours(0);
+        return;
+      }
+      try {
+        const children = await db.nodes.where('parentId').equals(nodeToEdit.id).toArray();
+        const sum = children.reduce((acc, c) => {
+          const h =
+            typeof c.totalNormHours === 'number' && c.totalNormHours > 0
+              ? c.totalNormHours
+              : c.normHours || 0;
+          return acc + h;
+        }, 0);
+        setChildrenTotalHours(Math.round(sum * 10) / 10);
+      } catch (err) {
+        console.error('Failed to load children norm hours:', err);
+      }
+    };
+    if (isOpen) {
+      fetchChildrenHours();
+    }
+  }, [isOpen, nodeToEdit, hasChildren]);
 
   // Load team members from database
   useEffect(() => {
@@ -114,6 +153,8 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
       );
       setNotes(nodeToEdit.notes || '');
       setImage(nodeToEdit.image);
+      setDelayReasons(nodeToEdit.delayReasons || []);
+      setDelayNotes(nodeToEdit.delayNotes || '');
     } else if (parentNode) {
       // Adding child
       const childLevel = Math.min(5, parentNode.level + 1) as NodeLevel;
@@ -135,6 +176,8 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
       setNormHours(8);
       setNotes('');
       setImage(undefined);
+      setDelayReasons([]);
+      setDelayNotes('');
     } else {
       // Adding new root node
       setTitle('');
@@ -151,6 +194,8 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
       setNormHours(50);
       setNotes('');
       setImage(undefined);
+      setDelayReasons([]);
+      setDelayNotes('');
     }
     setErrors({});
   }, [nodeToEdit, parentNode, isOpen]);
@@ -269,6 +314,8 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
       normHours: finalHours,
       weight: finalHours,
       notes: notes.trim(),
+      delayReasons: delayReasons.length > 0 ? delayReasons : undefined,
+      delayNotes: delayNotes.trim() || undefined,
       image,
       orderIndex: nodeToEdit ? nodeToEdit.orderIndex : Date.now(),
     };
@@ -279,6 +326,26 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
 
   // Determine if slider should be disabled
   const isSliderDisabled = isParentNode || status !== 'in_progress';
+
+  // Check if overdue or approaching or has historical delay data
+  const isNodeOverdue = Boolean(
+    dueDate && evaluateNodeDelay({ dueDate, progress } as BOMNode, delayConfig).isOverdue
+  );
+  const hasRecordedDelayData = Boolean(
+    (nodeToEdit?.delayReasons && nodeToEdit.delayReasons.length > 0) ||
+    Boolean(nodeToEdit?.delayNotes && nodeToEdit.delayNotes.trim().length > 0) ||
+    delayReasons.length > 0 ||
+    delayNotes.trim().length > 0
+  );
+  const showDelayFields = isNodeOverdue || hasRecordedDelayData || status === 'delayed';
+
+  const toggleDelayReason = (reasonLabel: string) => {
+    setDelayReasons((prev) =>
+      prev.includes(reasonLabel)
+        ? prev.filter((r) => r !== reasonLabel)
+        : [...prev, reasonLabel]
+    );
+  };
 
   return (
     <Modal
@@ -465,42 +532,48 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
-                <span className="flex items-center gap-1">
-                  <Clock className="w-3 h-3 text-sky-400" />
-                  <span>{t('norm_hours_short')}</span>
-                </span>
-                {isParentNode && (
-                  <span className="text-[9px] font-bold text-sky-300 flex items-center gap-0.5">
-                    <Lock className="w-2.5 h-2.5" />
-                    Sum
-                  </span>
-                )}
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-sky-400" />
+                <span>{t('node_own_norm_hours_short')}</span>
               </label>
 
               <div className="relative">
                 <input
                   type="number"
-                  min="0.1"
+                  min="0"
                   step="0.5"
-                  disabled={isParentNode}
                   value={normHours}
-                  onChange={(e) => setNormHours(Number(e.target.value))}
-                  className={`w-full px-3.5 py-2 text-xs rounded-xl border text-slate-900 dark:text-white outline-none ${
-                    isParentNode
-                      ? 'bg-sky-500/15 border-sky-500/30 text-sky-200 cursor-not-allowed font-bold'
-                      : 'bg-white/30 dark:bg-slate-800/60 border-white/20 dark:border-white/10 focus:ring-2 focus:ring-indigo-500/50'
-                  }`}
+                  onChange={(e) => setNormHours(Math.max(0, Number(e.target.value)))}
+                  className="w-full px-3.5 py-2 text-xs rounded-xl border text-slate-900 dark:text-white outline-none bg-white/30 dark:bg-slate-800/60 border-white/20 dark:border-white/10 focus:ring-2 focus:ring-indigo-500/50 font-medium"
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-semibold pointer-events-none">
                   {t('norm_hours_unit')}
                 </span>
               </div>
+              <p className="text-[10px] text-slate-400 mt-1 leading-tight">
+                {t('node_own_norm_hours_hint')}
+              </p>
 
+              {/* Calculated Total Norm-Hours: only shown if node has children */}
               {isParentNode && (
-                <p className="text-[9px] text-sky-300/80 mt-1 leading-tight">
-                  {t('norm_hours_locked_hint')}
-                </p>
+                <div className="mt-2.5 p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/25">
+                  <div className="flex items-center justify-between text-xs font-semibold">
+                    <span className="flex items-center gap-1.5 text-indigo-300">
+                      <span className="text-xs font-extrabold text-indigo-400">∑</span>
+                      <span>{t('total_norm_hours')}</span>
+                    </span>
+                    <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-200 border border-indigo-500/30">
+                      {Math.round(((Number(normHours) || 0) + childrenTotalHours) * 10) / 10} {t('norm_hours_unit')}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
+                    {Number(normHours) || 0} {t('norm_hours_unit')} ({t('node_own_norm_hours_short')}) + {childrenTotalHours} {t('norm_hours_unit')} ({t('subcomponents_label')})
+                  </p>
+                  <span className="inline-flex items-center gap-1 text-[9px] text-indigo-300/80 mt-1">
+                    <Lock className="w-2.5 h-2.5" />
+                    {t('total_norm_hours_readonly_badge')}
+                  </span>
+                </div>
               )}
             </div>
           </div>
@@ -654,6 +727,77 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
               className="w-full px-3.5 py-2 text-xs rounded-xl bg-white/30 dark:bg-slate-800/60 border border-white/20 dark:border-white/10 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500/50 outline-none resize-none"
             />
           </div>
+
+          {/* Overdue / Delay Details Section (appears when overdue, delayed, or previously recorded) */}
+          {showDelayFields && (
+            <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 space-y-3.5 transition-all animate-fadeIn">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span className="text-xs font-bold text-rose-300">
+                    {t('delay_section_title')}
+                  </span>
+                </div>
+                {progress === 100 && (
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    {t('delay_history_badge')}
+                  </span>
+                )}
+              </div>
+
+              {/* Delay Reasons Multi-Select */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  {t('delay_reasons_label')}
+                </label>
+                <p className="text-[10px] text-slate-400 mb-2">
+                  {t('delay_reasons_multi_hint')}
+                </p>
+                <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto custom-scrollbar p-1">
+                  {delayConfig.reasons.map((reason) => {
+                    const isSelected = delayReasons.includes(reason.label);
+                    return (
+                      <button
+                        key={reason.id}
+                        type="button"
+                        onClick={() => toggleDelayReason(reason.label)}
+                        className={`text-left text-xs px-2.5 py-1.5 rounded-xl border transition-all flex items-center gap-1.5 ${
+                          isSelected
+                            ? 'bg-rose-500/25 border-rose-400 text-rose-100 font-bold shadow-sm shadow-rose-950/40'
+                            : 'bg-white/10 dark:bg-slate-800/40 border-white/10 text-slate-300 hover:border-white/30 hover:bg-white/15'
+                        }`}
+                      >
+                        <div
+                          className={`w-3.5 h-3.5 rounded flex items-center justify-center border shrink-0 ${
+                            isSelected
+                              ? 'bg-rose-500 border-rose-400 text-white'
+                              : 'border-white/30'
+                          }`}
+                        >
+                          {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                        </div>
+                        <span className="text-[11px] leading-tight">{reason.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Detailed Delay Notes Textarea */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  {t('delay_notes_label')}
+                </label>
+                <textarea
+                  rows={3}
+                  value={delayNotes}
+                  onChange={(e) => setDelayNotes(e.target.value)}
+                  placeholder={t('delay_notes_placeholder')}
+                  className="w-full px-3.5 py-2 text-xs rounded-xl bg-white/30 dark:bg-slate-800/60 border border-rose-500/30 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-rose-500/50 outline-none resize-none"
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </Modal>

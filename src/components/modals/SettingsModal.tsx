@@ -26,6 +26,7 @@ import {
   Code2,
   ExternalLink,
   Cpu,
+  AlertTriangle,
 } from 'lucide-react';
 import { ThemeMode, GradientTheme, Language, Assignee } from '../../types';
 import { useI18n } from '../../locales';
@@ -36,6 +37,7 @@ import { exportDatabaseToJson, importDatabaseFromJson } from '../../services/exp
 import { db } from '../../services/db';
 import obStudioLogo from '../../assets/LogoOBStudi512x512.png';
 import { ScheduleSettingsTab } from '../schedule/ScheduleSettingsTab';
+import { DelaySettingsTab } from '../settings/DelaySettingsTab';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -68,7 +70,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [activeTab, setActiveTab] = useState<
-    'appearance' | 'schedule' | 'team' | 'glossary' | 'demo' | 'storage' | 'developer'
+    'appearance' | 'schedule' | 'delays' | 'team' | 'glossary' | 'demo' | 'storage' | 'developer'
   >('appearance');
   const [importStatus, setImportStatus] = useState<string | null>(null);
 
@@ -239,6 +241,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </button>
 
           <button
+            onClick={() => setActiveTab('delays')}
+            className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 ${
+              activeTab === 'delays'
+                ? 'bg-gradient-to-r from-rose-500 to-indigo-600 text-white shadow-sm'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+            <span>{t('tab_delays')}</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('team')}
             className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 ${
               activeTab === 'team'
@@ -397,6 +411,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* Tab: Work Schedule & Breaks (Розклад та перерви) */}
         {activeTab === 'schedule' && <ScheduleSettingsTab />}
+
+        {/* Tab: Overdue & Delay Criteria (Критерії прострочки) */}
+        {activeTab === 'delays' && <DelaySettingsTab />}
 
         {/* Tab 2: Team Management */}
         {activeTab === 'team' && (

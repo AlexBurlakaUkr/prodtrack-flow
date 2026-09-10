@@ -31,10 +31,14 @@ export interface BOMNode {
   batchQuantity: number; // Scaled batch quantity (Base * N)
   unit: string;
   notes?: string;
-  baseNormHours?: number; // Base Labor Intensity for 1 unit (нормо-години на 1 виріб)
-  normHours: number; // Scaled Labor Intensity (baseNormHours * N) for this batch
+  baseNormHours?: number; // Base Labor Intensity for 1 unit (нормо-години конкретного вузла на 1 виріб)
+  normHours: number; // Scaled Labor Intensity (baseNormHours * N) of this specific node (нормо-година конкретного вузла)
+  totalNormHours?: number; // Total Labor Intensity = own normHours + sum of all child nodes' totalNormHours (загальні нормо-години)
+  totalBaseNormHours?: number; // Total Base Labor Intensity
   weight?: number; // Backward compatibility alias
   orderIndex: number;
+  delayReasons?: string[]; // List of delay reason IDs
+  delayNotes?: string; // Detailed description of the delay reason
   children?: BOMNode[];
 }
 
@@ -87,7 +91,9 @@ export interface TemplateNode {
   defaultBatchQuantity: number;
   unit: string;
   baseNormHours?: number;
-  normHours: number; // Labor intensity in hours for 1 unit
+  normHours: number; // Labor intensity in hours for 1 unit of this specific node
+  totalNormHours?: number; // Total labor intensity including children
+  totalBaseNormHours?: number;
   weight?: number;
   notes?: string;
   image?: string;
@@ -134,4 +140,16 @@ export interface ScheduleItem {
 export interface ScheduleConfig {
   enabled: boolean;
   items: ScheduleItem[];
+}
+
+export interface DelayReason {
+  id: string;
+  label: string;
+  isDefault?: boolean;
+}
+
+export interface DelayConfig {
+  deadlineWarningDaysThreshold: number; // e.g. 2 days
+  progressWarningThreshold: number; // e.g. 80 %
+  reasons: DelayReason[];
 }

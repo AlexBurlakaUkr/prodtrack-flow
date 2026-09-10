@@ -56,6 +56,8 @@ export const BomNodeCard: React.FC<BomNodeCardProps> = ({
 
   const normHours = typeof node.normHours === 'number' ? node.normHours : node.weight || 0;
   const baseNormHours = typeof node.baseNormHours === 'number' ? node.baseNormHours : normHours;
+  const totalNormHours =
+    typeof node.totalNormHours === 'number' ? node.totalNormHours : normHours;
   const isScaled = Boolean(node.orderId && baseNormHours > 0 && normHours !== baseNormHours);
   const unitHours = t('norm_hours_unit');
 
@@ -87,7 +89,7 @@ export const BomNodeCard: React.FC<BomNodeCardProps> = ({
         base: baseNormHours,
         qty: Math.round(normHours / (baseNormHours || 1)),
       })
-    : `${t('norm_hours')}: ${normHours} ${unitHours}`;
+    : `${t('node_own_norm_hours')}: ${normHours} ${unitHours}`;
 
   return (
     <GlassCard
@@ -116,15 +118,16 @@ export const BomNodeCard: React.FC<BomNodeCardProps> = ({
               {node.code}
             </span>
 
-            {/* Prominent Norm-Hours Badge (with scaled indicator) */}
+            {/* 1. Own Node Norm-Hours Badge (present on ALL levels L1-L5) */}
             <span
               className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-300 flex items-center gap-1 shadow-sm cursor-help"
               title={hoursTooltip}
             >
               <Clock className="w-3 h-3 text-sky-400" />
               <span>
-                {hasChildren && <span className="text-[10px] font-normal mr-0.5">∑</span>}
-                {normHours} {unitHours}
+                {hasChildren
+                  ? t('node_hours_badge', { hours: normHours, unit: unitHours })
+                  : `${normHours} ${unitHours}`}
               </span>
               {isScaled && (
                 <span className="text-[9px] font-normal text-sky-400/80 ml-0.5 border-l border-sky-500/30 pl-1">
@@ -132,6 +135,19 @@ export const BomNodeCard: React.FC<BomNodeCardProps> = ({
                 </span>
               )}
             </span>
+
+            {/* 2. Total Norm-Hours Badge (displayed ONLY when node has children) */}
+            {hasChildren && (
+              <span
+                className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-lg bg-indigo-500/20 border border-indigo-500/35 text-indigo-300 flex items-center gap-1 shadow-sm cursor-help"
+                title={`${t('total_norm_hours')}: ${totalNormHours} ${unitHours} (${t('total_norm_hours_hint')})`}
+              >
+                <span className="text-[10px] font-extrabold text-indigo-400">∑</span>
+                <span>
+                  {t('total_hours_badge', { hours: totalNormHours, unit: unitHours })}
+                </span>
+              </span>
+            )}
           </div>
 
           {/* Quick Action buttons */}
@@ -206,12 +222,21 @@ export const BomNodeCard: React.FC<BomNodeCardProps> = ({
                   className="text-[9px] px-1.5 py-0.2 rounded bg-indigo-500/15 text-indigo-300 font-mono"
                   title={t('rollup_notice')}
                 >
-                  ∑ Roll-up ({normHours} {unitHours})
+                  ∑ Roll-up ({totalNormHours} {unitHours})
                 </span>
               )}
             </span>
             <span className="font-bold tabular-nums text-slate-800 dark:text-slate-200">
-              ⏱ {normHours} {unitHours} • {node.progress}%
+              {hasChildren ? (
+                <>
+                  <span className="text-slate-400 font-normal mr-1">∑ {totalNormHours} {unitHours} •</span>
+                  {node.progress}%
+                </>
+              ) : (
+                <>
+                  ⏱ {normHours} {unitHours} • {node.progress}%
+                </>
+              )}
             </span>
           </div>
           <ProgressBar progress={node.progress} status={node.status} size="sm" />
@@ -236,8 +261,23 @@ export const BomNodeCard: React.FC<BomNodeCardProps> = ({
             </span>
           </div>
 
-          {/* Deadline / Overdue Alert */}
-          <div className="flex items-center gap-1 shrink-0">
+          {/* Deadline / Overdue Alert & Delay Reasons */}
+          <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+            {node.delayReasons && node.delayReasons.length > 0 && (
+              <span
+                className="flex items-center gap-1 text-[10px] font-semibold text-rose-300 bg-rose-950/70 border border-rose-500/40 px-2 py-0.5 rounded-lg cursor-help transition-all hover:bg-rose-900/80"
+                title={`${t('delay_reasons_label')}:\n• ${node.delayReasons.join('\n• ')}${
+                  node.delayNotes ? `\n\n${t('delay_notes_label')}:\n${node.delayNotes}` : ''
+                }`}
+              >
+                <AlertTriangle className="w-2.5 h-2.5 text-rose-400 shrink-0" />
+                <span className="truncate max-w-[120px]">
+                  {node.delayReasons[0]}
+                  {node.delayReasons.length > 1 ? ` (+${node.delayReasons.length - 1})` : ''}
+                </span>
+              </span>
+            )}
+
             {isOverdue ? (
               <span className="flex items-center gap-1 text-[11px] font-bold text-rose-400 bg-rose-500/20 px-2 py-0.5 rounded-lg border border-rose-500/30 animate-pulse">
                 <AlertTriangle className="w-3 h-3" />
@@ -267,14 +307,14 @@ export const BomNodeCard: React.FC<BomNodeCardProps> = ({
               <>
                 <ChevronDown className="w-3.5 h-3.5 text-indigo-400" />
                 <span>
-                  {t('collapse_all')} ({childCount} items • {normHours} {unitHours})
+                  {t('collapse_all')} ({childCount} items • ∑ {totalNormHours} {unitHours})
                 </span>
               </>
             ) : (
               <>
                 <ChevronRight className="w-3.5 h-3.5 text-indigo-400" />
                 <span>
-                  {t('expand_all')} ({childCount} items • {normHours} {unitHours})
+                  {t('expand_all')} ({childCount} items • ∑ {totalNormHours} {unitHours})
                 </span>
               </>
             )}

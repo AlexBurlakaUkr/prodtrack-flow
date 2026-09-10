@@ -29,6 +29,7 @@
     "allowToChangeInstallationDirectory": true,
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
-    "shortcutName": "ProdTrack Flow"
+    "shortcutName": "ProdTrack Flow",
+    "deleteAppDataOnUninstall": false
   }
 }
