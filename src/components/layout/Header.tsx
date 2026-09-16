@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Layers,
   Search,
@@ -43,6 +43,56 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const { t } = useI18n();
   const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
+
+  // Load and maintain MRU (Most Recently Used) projects history
+  const [recentProjectIds, setRecentProjectIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('prodtrack_mru_projects');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
+
+  // Whenever activeProject changes, update MRU list
+  useEffect(() => {
+    if (!activeProject) return;
+    setRecentProjectIds((prev) => {
+      const filtered = prev.filter((id) => id !== activeProject.id);
+      const next = [activeProject.id, ...filtered];
+      localStorage.setItem('prodtrack_mru_projects', JSON.stringify(next));
+      return next;
+    });
+  }, [activeProject?.id]);
+
+  // Sort projects:
+  // 1. Currently active project is first
+  // 2. Previously used projects in reverse chronological order (the one right before this is 2nd)
+  // 3. Any projects never used yet (sorted by updatedAt / createdAt descending)
+  const sortedProjects: Project[] = useMemo(() => {
+    if (!projects || projects.length === 0) return [];
+    const activeId = activeProject?.id;
+
+    return [...projects].sort((a, b) => {
+      // 1. Active project is always on top
+      if (a.id === activeId) return -1;
+      if (b.id === activeId) return 1;
+
+      // 2. Rank by index in MRU list
+      const indexA = recentProjectIds.indexOf(a.id);
+      const indexB = recentProjectIds.indexOf(b.id);
+
+      if (indexA !== -1 && indexB !== -1) {
+        return indexA - indexB;
+      }
+      if (indexA !== -1) return -1;
+      if (indexB !== -1) return 1;
+
+      // 3. Fallback: updatedAt or createdAt descending
+      const dateA = new Date(a.updatedAt || a.createdAt).getTime();
+      const dateB = new Date(b.updatedAt || b.createdAt).getTime();
+      return dateB - dateA;
+    });
+  }, [projects, activeProject?.id, recentProjectIds]);
 
   return (
     <header className="sticky top-0 z-40 w-full px-4 sm:px-6 py-3 max-w-[1720px] mx-auto">
@@ -91,7 +141,7 @@ export const Header: React.FC<HeaderProps> = ({
                   </div>
 
                   <div className="max-h-56 overflow-y-auto custom-scrollbar space-y-1">
-                    {projects.map((proj) => {
+                    {sortedProjects.map((proj) => {
                       const isSelected = activeProject?.id === proj.id;
                       return (
                         <button

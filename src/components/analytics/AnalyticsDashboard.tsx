@@ -23,6 +23,7 @@ import {
   X,
   Tv,
   Projector,
+  Package,
 } from 'lucide-react';
 import { BOMNode, ProductionOrder, Project, NodeLevel, Assignee } from '../../types';
 import { useI18n } from '../../locales';
@@ -57,6 +58,207 @@ const ALL_WIDGETS: { id: AnalyticsWidgetId; labelKey: string }[] = [
   { id: 'detailed_components', labelKey: 'widget_detailed_components' },
   { id: 'team_workload', labelKey: 'widget_team_workload' },
 ];
+
+// Helper calculations extracted for per-widget data filtering
+const computeBottlenecks = (nodeList: BOMNode[]) => {
+  const list: { node: BOMNode; reason: 'delayed' | 'approaching'; daysLeft?: number }[] = [];
+  nodeList.forEach((n) => {
+    if (n.status === 'delayed') {
+      list.push({ node: n, reason: 'delayed' });
+    } else if (n.progress < 80) {
+      try {
+        const due = parseISO(n.dueDate);
+        const days = differenceInDays(due, new Date());
+        if (days <= 2) {
+          list.push({ node: n, reason: 'approaching', daysLeft: days });
+        }
+      } catch {}
+    }
+  });
+  return list.sort((a, b) => (b.node.normHours || 0) - (a.node.normHours || 0));
+};
+
+const computeDelayAnalysis = (nodeList: BOMNode[], delayConfig: ReturnType<typeof getDelayConfig>) => {
+  const overdueItems: {
+    node: BOMNode;
+    daysOverdue: number;
+    reasons: string[];
+    notes?: string;
+  }[] = [];
+
+  nodeList.forEach((node) => {
+    const evaluation = evaluateNodeDelay(node, delayConfig);
+    const isOverdue =
+      evaluation.isOverdue || (node.status === 'delayed' && node.progress < 100);
+    if (isOverdue) {
+      overdueItems.push({
+        node,
+        daysOverdue: Math.max(1, Math.abs(evaluation.daysDiff)),
+        reasons: node.delayReasons || [],
+        notes: node.delayNotes,
+      });
+    }
+  });
+
+  overdueItems.sort(
+    (a, b) =>
+      b.daysOverdue - a.daysOverdue ||
+      a.node.progress - b.node.progress ||
+      (b.node.normHours || 0) - (a.node.normHours || 0)
+  );
+
+  const top10Overdue = overdueItems.slice(0, 10);
+  const totalOverdueCount = overdueItems.length;
+  const totalOverdueHours =
+    Math.round(
+      overdueItems.reduce((acc, curr) => acc + (curr.node.normHours || 0), 0) * 10
+    ) / 10;
+  const avgDelayDays =
+    totalOverdueCount > 0
+      ? Math.round(
+          (overdueItems.reduce((acc, curr) => acc + curr.daysOverdue, 0) /
+            totalOverdueCount) *
+            10
+        ) / 10
+      : 0;
+
+  const reasonCounts: Record<string, number> = {};
+  delayConfig.reasons.forEach((r) => {
+    reasonCounts[r.label] = 0;
+  });
+
+  let totalLoggedReasonsCount = 0;
+  nodeList.forEach((n) => {
+    if (n.delayReasons && n.delayReasons.length > 0) {
+      n.delayReasons.forEach((r) => {
+        reasonCounts[r] = (reasonCounts[r] || 0) + 1;
+        totalLoggedReasonsCount++;
+      });
+    }
+  });
+
+  const sortedReasons = Object.entries(reasonCounts)
+    .map(([label, count]) => ({
+      label,
+      count,
+      percentage:
+        totalLoggedReasonsCount > 0
+          ? Math.round((count / totalLoggedReasonsCount) * 100)
+          : 0,
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  const topReason =
+    sortedReasons.length > 0 && sortedReasons[0].count > 0
+      ? sortedReasons[0].label
+      : '—';
+
+  return {
+    overdueItems,
+    top10Overdue,
+    totalOverdueCount,
+    totalOverdueHours,
+    avgDelayDays,
+    sortedReasons,
+    totalLoggedReasonsCount,
+    topReason,
+  };
+};
+
+const computeLevelStats = (nodeList: BOMNode[]) => {
+  return APP_CONFIG.LEVELS.map((lvl) => {
+    const levelNodes = nodeList.filter((n) => n.level === lvl.level);
+    const count = levelNodes.length;
+    const avgProgress =
+      count > 0
+        ? Math.round(
+            levelNodes.reduce((acc, curr) => acc + curr.progress, 0) / count
+          )
+        : 0;
+    const completedCount = levelNodes.filter((n) => n.progress === 100).length;
+    const delayedCount = levelNodes.filter((n) => n.status === 'delayed').length;
+    const totalHours =
+      Math.round(
+        levelNodes.reduce((acc, curr) => acc + (curr.normHours || 0), 0) * 10
+      ) / 10;
+
+    return {
+      level: lvl.level,
+      nameKey: lvl.key,
+      color: lvl.color,
+      count,
+      avgProgress,
+      completedCount,
+      delayedCount,
+      totalHours,
+    };
+  });
+};
+
+const computeAssigneeStats = (nodeList: BOMNode[]) => {
+  return APP_CONFIG.DEFAULT_ASSIGNEES.map((assignee) => {
+    const assignedNodes = nodeList.filter((n) => {
+      return (
+        (n.assignees && n.assignees.some((a) => a.id === assignee.id)) ||
+        n.assignee?.id === assignee.id
+      );
+    });
+    const count = assignedNodes.length;
+    const totalHours =
+      Math.round(
+        assignedNodes.reduce((acc, curr) => acc + (curr.normHours || 0), 0) * 10
+      ) / 10;
+    const avgProgress =
+      count > 0
+        ? Math.round(
+            assignedNodes.reduce((acc, curr) => acc + curr.progress, 0) / count
+          )
+        : 0;
+    const delayedCount = assignedNodes.filter((n) => n.status === 'delayed').length;
+    const completedCount = assignedNodes.filter((n) => n.progress === 100).length;
+
+    return {
+      assignee,
+      count,
+      totalHours,
+      avgProgress,
+      delayedCount,
+      completedCount,
+      tasks: assignedNodes,
+    };
+  });
+};
+
+const computeDetailedComponents = (
+  nodeList: BOMNode[],
+  levelFilter: 'all' | NodeLevel,
+  sort: 'lowest_progress' | 'highest_hours' | 'level',
+  search: string
+) => {
+  return nodeList
+    .filter((n) => {
+      if (levelFilter !== 'all' && n.level !== levelFilter) return false;
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        const matchTitle = n.title.toLowerCase().includes(q);
+        const matchCode = n.code.toLowerCase().includes(q);
+        const matchAssignee = (n.assignees || []).some((a) =>
+          a.name.toLowerCase().includes(q)
+        );
+        if (!matchTitle && !matchCode && !matchAssignee) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      if (sort === 'lowest_progress') {
+        return a.progress - b.progress;
+      }
+      if (sort === 'highest_hours') {
+        return (b.normHours || 0) - (a.normHours || 0);
+      }
+      return a.level - b.level || a.orderIndex - b.orderIndex;
+    });
+};
 
 export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
   project,
@@ -118,16 +320,46 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
     );
   }, [visibleWidgets]);
 
-  // Escape key listener to close full screen
+  // Per-widget order filter state: Record<AnalyticsWidgetId, string[]>
+  // Defaults to ['all'] for all widgets. When project changes, resets to ['all'].
+  const [widgetOrderFilters, setWidgetOrderFilters] = useState<Record<AnalyticsWidgetId, string[]>>({
+    kpi_overview: ['all'],
+    bottlenecks: ['all'],
+    delay_analysis: ['all'],
+    progress_by_level: ['all'],
+    detailed_components: ['all'],
+    team_workload: ['all'],
+  });
+
+  const [openFilterWidget, setOpenFilterWidget] = useState<AnalyticsWidgetId | null>(null);
+
+  // Reset order filters when switching active project
+  useEffect(() => {
+    setWidgetOrderFilters({
+      kpi_overview: ['all'],
+      bottlenecks: ['all'],
+      delay_analysis: ['all'],
+      progress_by_level: ['all'],
+      detailed_components: ['all'],
+      team_workload: ['all'],
+    });
+    setOpenFilterWidget(null);
+  }, [project.id]);
+
+  // Escape key listener to close dropdown or full screen
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setFullScreenWidget(null);
+        if (openFilterWidget) {
+          setOpenFilterWidget(null);
+        } else {
+          setFullScreenWidget(null);
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [openFilterWidget]);
 
   const toggleWidgetVisibility = (id: AnalyticsWidgetId) => {
     setVisibleWidgets((prev) => {
@@ -154,233 +386,351 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
     });
   };
 
-  // Root node progress
-  const rootNode = nodes.find((n) => n.parentId === null) || nodes[0];
-  const overallBOMProgress = rootNode ? rootNode.progress : 0;
-
-  // Level-by-level stats
-  const levelStats = useMemo(() => {
-    return APP_CONFIG.LEVELS.map((lvl) => {
-      const levelNodes = nodes.filter((n) => n.level === lvl.level);
-      const count = levelNodes.length;
-      const avgProgress =
-        count > 0
-          ? Math.round(
-              levelNodes.reduce((acc, curr) => acc + curr.progress, 0) / count
-            )
-          : 0;
-      const completedCount = levelNodes.filter((n) => n.progress === 100).length;
-      const delayedCount = levelNodes.filter((n) => n.status === 'delayed').length;
-      const totalHours = Math.round(
-        levelNodes.reduce((acc, curr) => acc + (curr.normHours || 0), 0) * 10
-      ) / 10;
-
-      return {
-        level: lvl.level,
-        nameKey: lvl.key,
-        color: lvl.color,
-        count,
-        avgProgress,
-        completedCount,
-        delayedCount,
-        totalHours,
-      };
-    });
-  }, [nodes]);
-
-  // Risk & Bottlenecks list (Sorted by highest norm-hours first)
-  const bottlenecks = useMemo(() => {
-    const list: { node: BOMNode; reason: 'delayed' | 'approaching'; daysLeft?: number }[] = [];
-
-    nodes.forEach((n) => {
-      if (n.status === 'delayed') {
-        list.push({ node: n, reason: 'delayed' });
-      } else if (n.progress < 80) {
-        try {
-          const due = parseISO(n.dueDate);
-          const days = differenceInDays(due, new Date());
-          if (days <= 2) {
-            list.push({ node: n, reason: 'approaching', daysLeft: days });
-          }
-        } catch {}
-      }
-    });
-
-    // Sort by normHours descending
-    return list.sort((a, b) => (b.node.normHours || 0) - (a.node.normHours || 0));
-  }, [nodes]);
-
-  // Total Hours at Risk
-  const totalHoursAtRisk = useMemo(() => {
-    return Math.round(
-      bottlenecks.reduce((acc, curr) => acc + (curr.node.normHours || 0), 0) * 10
-    ) / 10;
-  }, [bottlenecks]);
-
-  // Overdue and Delay Root Cause Analysis
   const delayConfig = useMemo(() => getDelayConfig(), []);
 
-  const delayAnalysis = useMemo(() => {
-    const overdueItems: {
-      node: BOMNode;
-      daysOverdue: number;
-      reasons: string[];
-      notes?: string;
-    }[] = [];
+  // Compute filtered dataset for each widget based on its selected orders
+  const widgetData = useMemo(() => {
+    const getWidgetNodes = (id: AnalyticsWidgetId): BOMNode[] => {
+      const filter = widgetOrderFilters[id] || ['all'];
+      if (filter.includes('all')) return nodes;
+      return nodes.filter((n) => {
+        if (!n.orderId) return filter.includes('master');
+        return filter.includes(n.orderId);
+      });
+    };
 
-    nodes.forEach((node) => {
-      const evaluation = evaluateNodeDelay(node, delayConfig);
-      const isOverdue =
-        evaluation.isOverdue || (node.status === 'delayed' && node.progress < 100);
-      if (isOverdue) {
-        overdueItems.push({
-          node,
-          daysOverdue: Math.max(1, Math.abs(evaluation.daysDiff)),
-          reasons: node.delayReasons || [],
-          notes: node.delayNotes,
-        });
-      }
-    });
+    // 1. KPI Overview
+    const kpiNodes = getWidgetNodes('kpi_overview');
+    const kpiRootNodes = kpiNodes.filter((n) => n.parentId === null);
+    const kpiOverallProgress =
+      kpiRootNodes.length > 0
+        ? Math.round(kpiRootNodes.reduce((sum, n) => sum + n.progress, 0) / kpiRootNodes.length)
+        : (kpiNodes[0]?.progress ?? 0);
+    const kpiBottlenecks = computeBottlenecks(kpiNodes);
+    const kpiTotalHoursAtRisk = Math.round(
+      kpiBottlenecks.reduce((acc, curr) => acc + (curr.node.normHours || 0), 0) * 10
+    ) / 10;
+    const kpiTotalCompleted = kpiNodes.filter((n) => n.progress === 100).length;
+    const kpiTotalOnSchedule = kpiNodes.filter(
+      (n) => n.status === 'in_progress' || n.status === 'completed'
+    ).length;
 
-    // Sort by most days overdue first, then lowest progress, then highest norm hours
-    overdueItems.sort(
-      (a, b) =>
-        b.daysOverdue - a.daysOverdue ||
-        a.node.progress - b.node.progress ||
-        (b.node.normHours || 0) - (a.node.normHours || 0)
+    // 2. Bottlenecks
+    const bottleneckNodes = getWidgetNodes('bottlenecks');
+    const bottlenecksList = computeBottlenecks(bottleneckNodes);
+    const bottlenecksHoursAtRisk = Math.round(
+      bottlenecksList.reduce((acc, curr) => acc + (curr.node.normHours || 0), 0) * 10
+    ) / 10;
+
+    // 3. Delay Analysis
+    const delayNodes = getWidgetNodes('delay_analysis');
+    const delayAnalysisData = computeDelayAnalysis(delayNodes, delayConfig);
+
+    // 4. Progress by Level
+    const levelNodes = getWidgetNodes('progress_by_level');
+    const levelStatsData = computeLevelStats(levelNodes);
+
+    // 5. Detailed Components
+    const detailedNodes = getWidgetNodes('detailed_components');
+    const detailedComponentsData = computeDetailedComponents(
+      detailedNodes,
+      componentLevelFilter,
+      componentSort,
+      componentSearch
     );
 
-    const top10Overdue = overdueItems.slice(0, 10);
-    const totalOverdueCount = overdueItems.length;
-
-    const totalOverdueHours =
-      Math.round(
-        overdueItems.reduce((acc, curr) => acc + (curr.node.normHours || 0), 0) * 10
-      ) / 10;
-
-    const avgDelayDays =
-      totalOverdueCount > 0
-        ? Math.round(
-            (overdueItems.reduce((acc, curr) => acc + curr.daysOverdue, 0) /
-              totalOverdueCount) *
-              10
-          ) / 10
-        : 0;
-
-    // Reason frequency distribution
-    const reasonCounts: Record<string, number> = {};
-    delayConfig.reasons.forEach((r) => {
-      reasonCounts[r.label] = 0;
-    });
-
-    let totalLoggedReasonsCount = 0;
-    nodes.forEach((n) => {
-      if (n.delayReasons && n.delayReasons.length > 0) {
-        n.delayReasons.forEach((r) => {
-          reasonCounts[r] = (reasonCounts[r] || 0) + 1;
-          totalLoggedReasonsCount++;
-        });
-      }
-    });
-
-    const sortedReasons = Object.entries(reasonCounts)
-      .map(([label, count]) => ({
-        label,
-        count,
-        percentage:
-          totalLoggedReasonsCount > 0
-            ? Math.round((count / totalLoggedReasonsCount) * 100)
-            : 0,
-      }))
-      .sort((a, b) => b.count - a.count);
-
-    const topReason =
-      sortedReasons.length > 0 && sortedReasons[0].count > 0
-        ? sortedReasons[0].label
-        : '—';
+    // 6. Team Workload
+    const workloadNodes = getWidgetNodes('team_workload');
+    const assigneeStatsData = computeAssigneeStats(workloadNodes);
 
     return {
-      overdueItems,
-      top10Overdue,
-      totalOverdueCount,
-      totalOverdueHours,
-      avgDelayDays,
-      sortedReasons,
-      totalLoggedReasonsCount,
-      topReason,
+      kpi_overview: {
+        nodes: kpiNodes,
+        overallProgress: kpiOverallProgress,
+        bottlenecks: kpiBottlenecks,
+        totalHoursAtRisk: kpiTotalHoursAtRisk,
+        totalCompleted: kpiTotalCompleted,
+        totalOnSchedule: kpiTotalOnSchedule,
+      },
+      bottlenecks: {
+        nodes: bottleneckNodes,
+        list: bottlenecksList,
+        totalHoursAtRisk: bottlenecksHoursAtRisk,
+      },
+      delay_analysis: {
+        nodes: delayNodes,
+        data: delayAnalysisData,
+      },
+      progress_by_level: {
+        nodes: levelNodes,
+        stats: levelStatsData,
+      },
+      detailed_components: {
+        nodes: detailedNodes,
+        components: detailedComponentsData,
+      },
+      team_workload: {
+        nodes: workloadNodes,
+        stats: assigneeStatsData,
+      },
     };
-  }, [nodes, delayConfig]);
+  }, [
+    nodes,
+    widgetOrderFilters,
+    delayConfig,
+    componentLevelFilter,
+    componentSort,
+    componentSearch,
+  ]);
 
-  // Detailed Components list filtered and sorted
-  const sortedDetailedComponents = useMemo(() => {
-    return nodes
-      .filter((n) => {
-        if (componentLevelFilter !== 'all' && n.level !== componentLevelFilter) return false;
-        if (componentSearch.trim()) {
-          const q = componentSearch.toLowerCase();
-          const matchTitle = n.title.toLowerCase().includes(q);
-          const matchCode = n.code.toLowerCase().includes(q);
-          const matchAssignee = (n.assignees || []).some((a) =>
-            a.name.toLowerCase().includes(q)
-          );
-          if (!matchTitle && !matchCode && !matchAssignee) return false;
-        }
-        return true;
-      })
-      .sort((a, b) => {
-        if (componentSort === 'lowest_progress') {
-          return a.progress - b.progress;
-        }
-        if (componentSort === 'highest_hours') {
-          return (b.normHours || 0) - (a.normHours || 0);
-        }
-        return a.level - b.level || a.orderIndex - b.orderIndex;
-      });
-  }, [nodes, componentLevelFilter, componentSort, componentSearch]);
+  // Project-wide total bottlenecks (for top-bar alerts button)
+  const totalProjectBottlenecks = useMemo(() => computeBottlenecks(nodes), [nodes]);
 
-  // Assignee workload breakdown with individual task lists
-  const assigneeStats = useMemo(() => {
-    return APP_CONFIG.DEFAULT_ASSIGNEES.map((assignee) => {
-      const assignedNodes = nodes.filter((n) => {
-        return (
-          (n.assignees && n.assignees.some((a) => a.id === assignee.id)) ||
-          n.assignee?.id === assignee.id
-        );
-      });
-      const count = assignedNodes.length;
-      const totalHours = Math.round(
-        assignedNodes.reduce((acc, curr) => acc + (curr.normHours || 0), 0) * 10
-      ) / 10;
-      const avgProgress =
-        count > 0
-          ? Math.round(
-              assignedNodes.reduce((acc, curr) => acc + curr.progress, 0) / count
-            )
-          : 0;
-      const delayedCount = assignedNodes.filter((n) => n.status === 'delayed').length;
-      const completedCount = assignedNodes.filter((n) => n.progress === 100).length;
+  // Order filter handlers
+  const handleSelectAllOrders = (widgetId: AnalyticsWidgetId) => {
+    setWidgetOrderFilters((prev) => ({
+      ...prev,
+      [widgetId]: ['all'],
+    }));
+  };
 
-      return {
-        assignee,
-        count,
-        totalHours,
-        avgProgress,
-        delayedCount,
-        completedCount,
-        tasks: assignedNodes,
-      };
+  const handleIsolateOrderFilter = (widgetId: AnalyticsWidgetId, orderId: string) => {
+    setWidgetOrderFilters((prev) => ({
+      ...prev,
+      [widgetId]: [orderId],
+    }));
+    setOpenFilterWidget(null);
+  };
+
+  const handleToggleOrderFilter = (widgetId: AnalyticsWidgetId, orderId: string) => {
+    setWidgetOrderFilters((prev) => {
+      const current = prev[widgetId] || ['all'];
+      if (orderId === 'all') {
+        return { ...prev, [widgetId]: ['all'] };
+      }
+
+      if (current.includes('all')) {
+        return { ...prev, [widgetId]: [orderId] };
+      }
+
+      let next: string[];
+      if (current.includes(orderId)) {
+        next = current.filter((id) => id !== orderId);
+        if (next.length === 0) {
+          next = ['all'];
+        }
+      } else {
+        next = [...current, orderId];
+      }
+
+      return { ...prev, [widgetId]: next };
     });
-  }, [nodes]);
+  };
 
-  const totalCompletedNodes = nodes.filter((n) => n.progress === 100).length;
-  const totalOnSchedule = nodes.filter(
-    (n) => n.status === 'in_progress' || n.status === 'completed'
-  ).length;
+  // Render Order Filter Dropdown button and menu for any widget
+  const renderOrderFilterDropdown = (widgetId: AnalyticsWidgetId, isFullscreen: boolean = false) => {
+    const currentFilters = widgetOrderFilters[widgetId] || ['all'];
+    const isAllSelected = currentFilters.includes('all');
+    const isMasterSelected = !isAllSelected && currentFilters.includes('master');
+    const isOpen = openFilterWidget === widgetId;
+
+    let buttonLabel = t('filter_orders_button_all');
+    if (!isAllSelected) {
+      if (currentFilters.length === 1) {
+        if (currentFilters[0] === 'master') {
+          buttonLabel = t('filter_orders_master');
+        } else {
+          const ord = orders.find((o) => o.id === currentFilters[0]);
+          buttonLabel = ord ? ord.orderNumber : t('filter_orders_button_selected', { count: 1 });
+        }
+      } else {
+        buttonLabel = t('filter_orders_button_selected', { count: currentFilters.length });
+      }
+    }
+
+    const widgetNodesCount = widgetData[widgetId]?.nodes?.length ?? 0;
+    const masterNodesCount = nodes.filter((n) => !n.orderId).length;
+    const hasMasterNodes = masterNodesCount > 0;
+
+    return (
+      <div className="relative inline-block text-left">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setOpenFilterWidget(isOpen ? null : widgetId);
+          }}
+          className={`px-2.5 py-1.5 rounded-xl border flex items-center gap-1.5 transition-all text-xs font-semibold shadow-sm ${
+            !isAllSelected
+              ? 'bg-indigo-600/30 border-indigo-500/50 text-indigo-200 hover:bg-indigo-600/40'
+              : 'bg-white/10 dark:bg-slate-800/60 hover:bg-white/20 border-white/15 text-slate-300'
+          }`}
+          title={t('filter_orders_title')}
+        >
+          <Package className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+          <span className="max-w-[120px] sm:max-w-[150px] truncate">{buttonLabel}</span>
+          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/10 text-slate-300 font-mono">
+            {widgetNodesCount}
+          </span>
+          <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        </button>
+
+        {isOpen && (
+          <>
+            <div
+              className="fixed inset-0 z-40"
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpenFilterWidget(null);
+              }}
+            />
+            <div
+              className={`absolute right-0 mt-2 w-72 sm:w-80 rounded-2xl bg-[#0f172e]/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-white/20 dark:border-white/10 shadow-2xl p-2.5 z-50 space-y-1.5 animate-scaleIn text-xs ${
+                isFullscreen ? 'text-slate-200' : ''
+              }`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-2 py-1 border-b border-white/10 pb-1.5">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Filter className="w-3 h-3 text-indigo-400" />
+                  {t('filter_orders_title')}
+                </span>
+                <button
+                  onClick={() => handleSelectAllOrders(widgetId)}
+                  className="text-[10px] text-indigo-400 hover:text-indigo-300 font-semibold"
+                >
+                  {t('filter_orders_select_all')}
+                </button>
+              </div>
+
+              {/* Option 1: All Orders */}
+              <button
+                onClick={() => handleToggleOrderFilter(widgetId, 'all')}
+                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-left hover:bg-white/10 transition-colors"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <div
+                    className={`w-4 h-4 rounded-md border flex items-center justify-center transition-all shrink-0 ${
+                      isAllSelected
+                        ? 'bg-indigo-600 border-indigo-500 text-white'
+                        : 'border-slate-500 bg-transparent'
+                    }`}
+                  >
+                    {isAllSelected && <Check className="w-3 h-3" />}
+                  </div>
+                  <span className={`truncate font-semibold ${isAllSelected ? 'text-white' : 'text-slate-300'}`}>
+                    {t('filter_orders_all')}
+                  </span>
+                </div>
+                <span className="text-[10px] font-mono text-slate-400 shrink-0">
+                  {nodes.length} {t('subcomponents_label')}
+                </span>
+              </button>
+
+              {/* Option 2: Master Blueprint (if has master nodes) */}
+              {hasMasterNodes && (
+                <button
+                  onClick={() => handleToggleOrderFilter(widgetId, 'master')}
+                  className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-left hover:bg-white/10 transition-colors"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div
+                      className={`w-4 h-4 rounded-md border flex items-center justify-center transition-all shrink-0 ${
+                        isMasterSelected
+                          ? 'bg-indigo-600 border-indigo-500 text-white'
+                          : 'border-slate-500 bg-transparent'
+                      }`}
+                    >
+                      {isMasterSelected && <Check className="w-3 h-3" />}
+                    </div>
+                    <span className={`truncate ${isMasterSelected ? 'text-white font-semibold' : 'text-slate-300'}`}>
+                      {t('filter_orders_master')}
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-mono text-slate-400 shrink-0">
+                    {masterNodesCount}
+                  </span>
+                </button>
+              )}
+
+              {/* Orders list */}
+              <div className="max-h-56 overflow-y-auto custom-scrollbar space-y-1 pt-1 border-t border-white/10">
+                {orders.length === 0 ? (
+                  <div className="p-3 text-center text-slate-500 text-[11px]">
+                    {t('filter_orders_empty')}
+                  </div>
+                ) : (
+                  orders.map((order) => {
+                    const isChecked = !isAllSelected && currentFilters.includes(order.id);
+                    const orderNodesCount = nodes.filter((n) => n.orderId === order.id).length;
+                    return (
+                      <div
+                        key={order.id}
+                        className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl hover:bg-white/10 transition-colors group"
+                      >
+                        <button
+                          onClick={() => handleToggleOrderFilter(widgetId, order.id)}
+                          className="flex items-center gap-2 min-w-0 flex-1 text-left"
+                        >
+                          <div
+                            className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 transition-all ${
+                              isChecked
+                                ? 'bg-indigo-600 border-indigo-500 text-white'
+                                : 'border-slate-500 bg-transparent'
+                            }`}
+                          >
+                            {isChecked && <Check className="w-3 h-3" />}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className={`font-bold truncate ${isChecked ? 'text-white' : 'text-slate-200'}`}>
+                              {order.orderNumber}
+                            </div>
+                            <div className="text-[10px] text-slate-400 truncate">
+                              {order.title} • {order.batchQuantity} шт.
+                            </div>
+                          </div>
+                        </button>
+
+                        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                          <span className="text-[10px] font-mono text-slate-400">
+                            {orderNodesCount}
+                          </span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleIsolateOrderFilter(widgetId, order.id);
+                            }}
+                            className="opacity-0 group-hover:opacity-100 px-1.5 py-0.5 rounded bg-white/10 hover:bg-indigo-600 text-[9px] font-semibold text-slate-300 hover:text-white transition-all"
+                            title={t('filter_orders_isolate')}
+                          >
+                            {t('filter_orders_isolate')}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
 
   // Render Widget Content helper for both standard and full-screen presentation modes
   const renderWidgetContent = (id: AnalyticsWidgetId, isFullscreen: boolean = false) => {
     switch (id) {
-      case 'kpi_overview':
+      case 'kpi_overview': {
+        const {
+          overallProgress,
+          bottlenecks: kpiBottlenecks,
+          totalHoursAtRisk: kpiHoursAtRisk,
+          totalOnSchedule,
+          totalCompleted,
+          nodes: kpiNodes,
+        } = widgetData.kpi_overview;
+
         return (
           <div
             className={`grid grid-cols-2 ${
@@ -403,7 +753,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                     isFullscreen ? 'text-6xl sm:text-8xl tracking-tight' : 'text-2xl sm:text-3xl font-extrabold'
                   }`}
                 >
-                  {overallBOMProgress}%
+                  {overallProgress}%
                 </span>
                 <span className={`text-emerald-400 font-bold flex items-center ${isFullscreen ? 'text-sm' : 'text-[11px]'}`}>
                   <ArrowUpRight className={isFullscreen ? 'w-5 h-5' : 'w-3 h-3'} />
@@ -411,7 +761,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                 </span>
               </div>
               <ProgressBar
-                progress={overallBOMProgress}
+                progress={overallProgress}
                 size={isFullscreen ? 'md' : 'xs'}
                 className="mt-2"
               />
@@ -432,10 +782,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                   isFullscreen ? 'text-6xl sm:text-8xl tracking-tight' : 'text-2xl sm:text-3xl font-extrabold'
                 }`}
               >
-                {bottlenecks.length}
+                {kpiBottlenecks.length}
               </div>
               <div className={`text-rose-400 font-semibold ${isFullscreen ? 'text-sm' : 'text-[11px]'}`}>
-                {totalHoursAtRisk} {t('norm_hours_unit')} under risk
+                {kpiHoursAtRisk} {t('norm_hours_unit')} under risk
               </div>
             </div>
 
@@ -454,10 +804,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                   isFullscreen ? 'text-6xl sm:text-8xl tracking-tight' : 'text-2xl sm:text-3xl font-extrabold'
                 }`}
               >
-                {totalOnSchedule} / {nodes.length}
+                {totalOnSchedule} / {kpiNodes.length}
               </div>
               <div className={`text-slate-300 font-semibold ${isFullscreen ? 'text-sm' : 'text-[11px]'}`}>
-                {Math.round((totalOnSchedule / Math.max(1, nodes.length)) * 100)}% on track
+                {Math.round((totalOnSchedule / Math.max(1, kpiNodes.length)) * 100)}% on track
               </div>
             </div>
 
@@ -476,16 +826,18 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                   isFullscreen ? 'text-6xl sm:text-8xl tracking-tight' : 'text-2xl sm:text-3xl font-extrabold'
                 }`}
               >
-                {totalCompletedNodes} / {nodes.length}
+                {totalCompleted} / {kpiNodes.length}
               </div>
               <div className={`text-sky-300 font-semibold ${isFullscreen ? 'text-sm' : 'text-[11px]'}`}>
-                {Math.round((totalCompletedNodes / Math.max(1, nodes.length)) * 100)}% 100% completed
+                {Math.round((totalCompleted / Math.max(1, kpiNodes.length)) * 100)}% 100% completed
               </div>
             </div>
           </div>
         );
+      }
 
-      case 'progress_by_level':
+      case 'progress_by_level': {
+        const { stats: levelStats } = widgetData.progress_by_level;
         return (
           <div className={`space-y-4 pt-1 ${isFullscreen ? 'max-w-6xl mx-auto w-full py-6 space-y-6' : ''}`}>
             {levelStats.map((item) => (
@@ -528,8 +880,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             ))}
           </div>
         );
+      }
 
-      case 'bottlenecks':
+      case 'bottlenecks': {
+        const { list: bottlenecks } = widgetData.bottlenecks;
         return (
           <div
             className={`space-y-3 flex-1 overflow-y-auto custom-scrollbar pt-1 ${
@@ -603,8 +957,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             )}
           </div>
         );
+      }
 
-      case 'delay_analysis':
+      case 'delay_analysis': {
+        const { data: delayAnalysis, nodes: delayNodes } = widgetData.delay_analysis;
         return (
           <div
             className={`space-y-6 pt-1 ${
@@ -623,7 +979,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                     {delayAnalysis.totalOverdueCount}
                   </span>
                   <span className="text-xs text-rose-300/80 ml-2 font-medium">
-                    / {nodes.length}
+                    / {delayNodes.length}
                   </span>
                 </div>
                 <span className="text-[11px] text-slate-400">
@@ -758,9 +1114,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                           />
                         </div>
 
-                        {/* Note snippet */}
                         {item.notes && (
-                          <p className="text-[11px] text-slate-400 bg-black/20 p-2 rounded-xl border border-white/5 italic">
+                          <p className="text-[11px] text-slate-400 italic pt-1 border-t border-white/5">
                             "{item.notes}"
                           </p>
                         )}
@@ -770,12 +1125,17 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                 )}
               </div>
 
-              {/* Right: Delay Reasons Frequency Distribution (5 cols) */}
+              {/* Right: Delay Root Cause Frequency Distribution (5 cols) */}
               <div className="lg:col-span-5 space-y-3">
-                <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4 text-indigo-400" />
-                  {t('delay_reasons_distribution')}
-                </h4>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-amber-500" />
+                    {t('delay_reasons_distribution')}
+                  </h4>
+                  <span className="text-xs text-slate-400">
+                    {delayAnalysis.totalLoggedReasonsCount} {t('delay_reasons_label').toLowerCase()}
+                  </span>
+                </div>
 
                 <div className="p-4 rounded-2xl bg-white/10 dark:bg-slate-800/40 border border-white/10 space-y-4 max-h-[480px] overflow-y-auto custom-scrollbar">
                   {delayAnalysis.sortedReasons.map((item, idx) => {
@@ -806,8 +1166,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             </div>
           </div>
         );
+      }
 
-      case 'detailed_components':
+      case 'detailed_components': {
+        const { components: sortedDetailedComponents } = widgetData.detailed_components;
         return (
           <div className="space-y-4 pt-1 h-full flex flex-col">
             {/* Filter / Sort Bar inside Panel */}
@@ -872,71 +1234,79 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                 isFullscreen ? 'max-h-[78vh]' : 'max-h-[480px]'
               }`}
             >
-              {sortedDetailedComponents.map((node) => {
-                const levelConfig =
-                  APP_CONFIG.LEVELS.find((l) => l.level === node.level) || APP_CONFIG.LEVELS[0];
-                const assigneesList =
-                  node.assignees && node.assignees.length > 0
-                    ? node.assignees
-                    : node.assignee
-                    ? [node.assignee]
-                    : [];
+              {sortedDetailedComponents.length === 0 ? (
+                <div className="p-8 text-center text-slate-400 bg-white/5 rounded-2xl border border-white/10 text-xs">
+                  {t('no_matching_nodes')}
+                </div>
+              ) : (
+                sortedDetailedComponents.map((node) => {
+                  const levelConfig =
+                    APP_CONFIG.LEVELS.find((l) => l.level === node.level) || APP_CONFIG.LEVELS[0];
+                  const assigneesList =
+                    node.assignees && node.assignees.length > 0
+                      ? node.assignees
+                      : node.assignee
+                      ? [node.assignee]
+                      : [];
 
-                return (
-                  <div
-                    key={node.id}
-                    className={`rounded-2xl bg-white/10 dark:bg-slate-800/40 border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:border-white/20 transition-all ${
-                      isFullscreen ? 'p-4 sm:p-5' : 'p-3'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                      <span
-                        className={`px-2 py-1 rounded-lg text-[10px] font-extrabold uppercase border shrink-0 ${levelConfig.badgeBg}`}
-                      >
-                        L{node.level}
-                      </span>
+                  return (
+                    <div
+                      key={node.id}
+                      className={`rounded-2xl bg-white/10 dark:bg-slate-800/40 border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:border-white/20 transition-all ${
+                        isFullscreen ? 'p-4 sm:p-5' : 'p-3'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                        <span
+                          className={`px-2 py-1 rounded-lg text-[10px] font-extrabold uppercase border shrink-0 ${levelConfig.badgeBg}`}
+                        >
+                          L{node.level}
+                        </span>
 
-                      {node.image && (
-                        <img
-                          src={node.image}
-                          alt={node.title}
-                          className="w-8 h-8 rounded-lg object-contain bg-white/10 p-0.5 border border-white/10 shrink-0"
-                        />
-                      )}
+                        {node.image && (
+                          <img
+                            src={node.image}
+                            alt={node.title}
+                            className="w-8 h-8 rounded-lg object-contain bg-white/10 p-0.5 border border-white/10 shrink-0"
+                          />
+                        )}
 
-                      <div className="min-w-0">
-                        <div className={`font-bold text-slate-900 dark:text-white truncate ${isFullscreen ? 'text-sm sm:text-base' : 'text-xs'}`}>
-                          {node.title}
-                        </div>
-                        <div className="text-[11px] font-mono text-slate-400">
-                          {node.code}
+                        <div className="min-w-0">
+                          <div className={`font-bold text-slate-900 dark:text-white truncate ${isFullscreen ? 'text-sm sm:text-base' : 'text-xs'}`}>
+                            {node.title}
+                          </div>
+                          <div className="text-[11px] font-mono text-slate-400">
+                            {node.code}
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end shrink-0">
-                      <StatusBadge status={node.status} size={isFullscreen ? 'sm' : 'xs'} />
+                      <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end shrink-0">
+                        <StatusBadge status={node.status} size={isFullscreen ? 'sm' : 'xs'} />
 
-                      <div className={`${isFullscreen ? 'w-44 sm:w-56 space-y-1.5' : 'w-28 sm:w-36 space-y-1'}`}>
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span className="font-extrabold text-slate-200">{node.progress}%</span>
-                          <span className="text-sky-300 font-mono font-bold">
-                            ⏱ {node.normHours} {t('norm_hours_unit')}
-                          </span>
+                        <div className={`${isFullscreen ? 'w-44 sm:w-56 space-y-1.5' : 'w-28 sm:w-36 space-y-1'}`}>
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="font-extrabold text-slate-200">{node.progress}%</span>
+                            <span className="text-sky-300 font-mono font-bold">
+                              ⏱ {node.normHours} {t('norm_hours_unit')}
+                            </span>
+                          </div>
+                          <ProgressBar progress={node.progress} status={node.status} size={isFullscreen ? 'sm' : 'xs'} />
                         </div>
-                        <ProgressBar progress={node.progress} status={node.status} size={isFullscreen ? 'sm' : 'xs'} />
-                      </div>
 
-                      <StackedAvatars assignees={assigneesList} size={isFullscreen ? 'sm' : 'xs'} />
+                        <StackedAvatars assignees={assigneesList} size={isFullscreen ? 'sm' : 'xs'} />
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
         );
+      }
 
-      case 'team_workload':
+      case 'team_workload': {
+        const { stats: assigneeStats } = widgetData.team_workload;
         return (
           <div
             className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5 pt-1 ${
@@ -1010,10 +1380,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                         ))}
                       </div>
 
-                      {!isFullscreen && item.tasks.length > 2 && (
+                      {item.tasks.length > 2 && !isFullscreen && (
                         <button
                           onClick={() => toggleWorkloadExpand(item.assignee.id)}
-                          className="w-full py-1 text-[10px] font-bold text-indigo-400 hover:text-indigo-300 flex items-center justify-center gap-1 transition-colors"
+                          className="w-full py-1 text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 flex items-center justify-center gap-1 transition-colors"
                         >
                           {isExpanded ? (
                             <>
@@ -1048,6 +1418,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             })}
           </div>
         );
+      }
 
       default:
         return null;
@@ -1060,14 +1431,20 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       <GlassCard variant="elevated" className="p-5">
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2">
-              <Activity className="w-5 h-5 text-indigo-400" />
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <Activity className="w-5 h-5 text-indigo-400 shrink-0" />
               <h2 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
                 {t('analytics_title')}
               </h2>
+              {/* Prominent Active Project Context Pill */}
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 text-indigo-300 shadow-sm">
+                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                <span className="text-xs font-bold text-white truncate max-w-[200px] sm:max-w-xs">{project.name}</span>
+                <span className="text-[11px] font-mono text-indigo-300 shrink-0">({project.code})</span>
+              </div>
             </div>
-            <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-              {t('analytics_subtitle')}
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+              {t('analytics_subtitle')} • <span className="text-slate-300 font-medium">{project.archetype || project.name}</span>
             </p>
           </div>
 
@@ -1127,7 +1504,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             >
               <AlertTriangle className="w-4 h-4 text-rose-400 animate-bounce" />
               <span>
-                {t('checkin_alerts_count', { count: bottlenecks.length })}
+                {t('checkin_alerts_count', { count: totalProjectBottlenecks.length })}
               </span>
             </button>
           </div>
@@ -1136,17 +1513,20 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
         {/* Panel 1: Executive KPI Overview */}
         {visibleWidgets.has('kpi_overview') && (
           <div className="mt-5 pt-4 border-t border-black/5 dark:border-white/10 relative">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                 {t('widget_kpi_overview')}
               </span>
-              <button
-                onClick={() => setFullScreenWidget('kpi_overview')}
-                className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-400 hover:text-white transition-all"
-                title={t('fullscreen_expand')}
-              >
-                <Maximize2 className="w-3.5 h-3.5" />
-              </button>
+              <div className="flex items-center gap-2">
+                {renderOrderFilterDropdown('kpi_overview')}
+                <button
+                  onClick={() => setFullScreenWidget('kpi_overview')}
+                  className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-400 hover:text-white transition-all"
+                  title={t('fullscreen_expand')}
+                >
+                  <Maximize2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
             {renderWidgetContent('kpi_overview')}
           </div>
@@ -1159,20 +1539,23 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
           {/* Panel 2: Progress by Hierarchy Level */}
           {visibleWidgets.has('progress_by_level') && (
             <GlassCard variant="elevated" className="p-5 space-y-4">
-              <div className="flex items-center justify-between border-b border-black/5 dark:border-white/10 pb-3">
+              <div className="flex items-center justify-between border-b border-black/5 dark:border-white/10 pb-3 flex-wrap gap-2">
                 <div className="flex items-center gap-2">
                   <Layers className="w-4 h-4 text-indigo-400" />
                   <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
                     {t('progress_by_level')}
                   </h3>
                 </div>
-                <button
-                  onClick={() => setFullScreenWidget('progress_by_level')}
-                  className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-400 hover:text-white transition-all"
-                  title={t('fullscreen_expand')}
-                >
-                  <Maximize2 className="w-3.5 h-3.5" />
-                </button>
+                <div className="flex items-center gap-2">
+                  {renderOrderFilterDropdown('progress_by_level')}
+                  <button
+                    onClick={() => setFullScreenWidget('progress_by_level')}
+                    className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-400 hover:text-white transition-all"
+                    title={t('fullscreen_expand')}
+                  >
+                    <Maximize2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
               {renderWidgetContent('progress_by_level')}
             </GlassCard>
@@ -1181,7 +1564,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
           {/* Panel 3: Risk & Bottleneck Analyzer */}
           {visibleWidgets.has('bottlenecks') && (
             <GlassCard variant="elevated" className="p-5 space-y-4 flex flex-col">
-              <div className="flex items-center justify-between border-b border-black/5 dark:border-white/10 pb-3">
+              <div className="flex items-center justify-between border-b border-black/5 dark:border-white/10 pb-3 flex-wrap gap-2">
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 text-rose-400" />
                   <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
@@ -1190,8 +1573,9 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-bold">
-                    {bottlenecks.length} Blockers
+                    {widgetData.bottlenecks.list.length} Blockers
                   </span>
+                  {renderOrderFilterDropdown('bottlenecks')}
                   <button
                     onClick={() => setFullScreenWidget('bottlenecks')}
                     className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-400 hover:text-white transition-all"
@@ -1210,7 +1594,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       {/* Panel: Delay & Root Cause Analytics */}
       {visibleWidgets.has('delay_analysis') && (
         <GlassCard variant="elevated" className="p-5 space-y-4">
-          <div className="flex items-center justify-between border-b border-black/5 dark:border-white/10 pb-3">
+          <div className="flex items-center justify-between border-b border-black/5 dark:border-white/10 pb-3 flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-rose-400" />
               <div>
@@ -1224,8 +1608,9 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs px-2.5 py-1 rounded-full bg-rose-500/20 border border-rose-500/30 text-rose-300 font-bold">
-                {delayAnalysis.totalOverdueCount} {t('overdue_nodes_count').toLowerCase()}
+                {widgetData.delay_analysis.data.totalOverdueCount} {t('overdue_nodes_count').toLowerCase()}
               </span>
+              {renderOrderFilterDropdown('delay_analysis')}
               <button
                 onClick={() => setFullScreenWidget('delay_analysis')}
                 className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-400 hover:text-white transition-all"
@@ -1242,7 +1627,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       {/* Panel 4: Granular Component-by-Component Progress */}
       {visibleWidgets.has('detailed_components') && (
         <GlassCard variant="elevated" className="p-5 space-y-4">
-          <div className="flex items-center justify-between border-b border-black/5 dark:border-white/10 pb-3">
+          <div className="flex items-center justify-between border-b border-black/5 dark:border-white/10 pb-3 flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-indigo-400" />
               <div>
@@ -1254,13 +1639,16 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => setFullScreenWidget('detailed_components')}
-              className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-400 hover:text-white transition-all shrink-0"
-              title={t('fullscreen_expand')}
-            >
-              <Maximize2 className="w-3.5 h-3.5" />
-            </button>
+            <div className="flex items-center gap-2">
+              {renderOrderFilterDropdown('detailed_components')}
+              <button
+                onClick={() => setFullScreenWidget('detailed_components')}
+                className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-400 hover:text-white transition-all shrink-0"
+                title={t('fullscreen_expand')}
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
           {renderWidgetContent('detailed_components')}
         </GlassCard>
@@ -1269,20 +1657,23 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       {/* Panel 5: Team Workload & Task Breakdown */}
       {visibleWidgets.has('team_workload') && (
         <GlassCard variant="elevated" className="p-5 space-y-4">
-          <div className="flex items-center justify-between border-b border-black/5 dark:border-white/10 pb-3">
+          <div className="flex items-center justify-between border-b border-black/5 dark:border-white/10 pb-3 flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-indigo-400" />
               <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
                 {t('assignee_workload')}
               </h3>
             </div>
-            <button
-              onClick={() => setFullScreenWidget('team_workload')}
-              className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-400 hover:text-white transition-all"
-              title={t('fullscreen_expand')}
-            >
-              <Maximize2 className="w-3.5 h-3.5" />
-            </button>
+            <div className="flex items-center gap-2">
+              {renderOrderFilterDropdown('team_workload')}
+              <button
+                onClick={() => setFullScreenWidget('team_workload')}
+                className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-400 hover:text-white transition-all"
+                title={t('fullscreen_expand')}
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
           {renderWidgetContent('team_workload')}
         </GlassCard>
@@ -1316,6 +1707,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             </div>
 
             <div className="flex items-center gap-4">
+              {renderOrderFilterDropdown(fullScreenWidget, true)}
+
               <span className="hidden sm:inline-block font-mono text-sm font-bold text-slate-300 px-3 py-1.5 rounded-xl bg-white/10 border border-white/10">
                 {currentTime}
               </span>

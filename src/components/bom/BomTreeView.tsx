@@ -349,11 +349,18 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
       <GlassCard variant="elevated" className="p-4 sm:p-5">
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <FolderTree className="w-5 h-5 text-indigo-400" />
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <FolderTree className="w-5 h-5 text-indigo-400 shrink-0" />
               <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
                 {t('bom_canvas_title')}
               </h2>
+
+              {/* Prominent Active Project Context Pill */}
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 text-indigo-300 shadow-sm">
+                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                <span className="text-xs font-bold text-white truncate max-w-[200px] sm:max-w-xs">{project.name}</span>
+                <span className="text-[11px] font-mono text-indigo-300 shrink-0">({project.code})</span>
+              </div>
 
               {/* Scope Badge (Master vs Order) */}
               {activeOrder ? (

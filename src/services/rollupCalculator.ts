@@ -131,16 +131,36 @@ export function recalculateNodeRollups(nodes: BOMNode[]): BOMNode[] {
         // Keep weight aligned with total hours for backward compatibility
         node.weight = node.totalNormHours;
 
+        // Calculate parent's own progress
+        let ownProg =
+          typeof node.ownProgress === 'number'
+            ? node.ownProgress
+            : node.status === 'completed'
+            ? 100
+            : node.status === 'pending'
+            ? 0
+            : typeof node.progress === 'number'
+            ? node.progress
+            : 0;
+
+        if (node.status === 'completed') {
+          ownProg = 100;
+        }
+
         // Weighted progress percentage combining own progress + child tasks
         const combinedHours = ownHours + totalChildHours;
-        const totalProgressPoints = weightedProgressSum + (node.progress || 0) * ownHours;
+        const totalProgressPoints = weightedProgressSum + ownProg * ownHours;
         const computedProgress =
           combinedHours > 0 ? Math.round(totalProgressPoints / combinedHours) : 0;
-        node.progress = Math.min(100, Math.max(0, computedProgress));
+
+        node.ownProgress = ownProg;
+        node.progress = node.status === 'completed' ? 100 : Math.min(100, Math.max(0, computedProgress));
 
         // Status adjustment
-        if (node.progress === 100 || (allCompleted && node.progress === 100)) {
+        if (node.progress === 100 || (allCompleted && ownProg === 100)) {
           node.status = 'completed';
+          node.progress = 100;
+          node.ownProgress = 100;
         } else if (hasDelayedChild && node.status !== 'completed') {
           node.status = 'delayed';
         } else if (node.progress > 0 && node.status === 'pending') {
@@ -153,6 +173,7 @@ export function recalculateNodeRollups(nodes: BOMNode[]): BOMNode[] {
         node.totalNormHours = ownHours;
         node.totalBaseNormHours = ownBaseHours;
         node.weight = ownHours;
+        node.ownProgress = node.progress;
       }
     });
 

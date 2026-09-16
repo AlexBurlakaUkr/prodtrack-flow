@@ -52,6 +52,7 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
   const [code, setCode] = useState('');
   const [level, setLevel] = useState<NodeLevel>(1);
   const [progress, setProgress] = useState(0);
+  const [ownProgress, setOwnProgress] = useState(0);
   const [lastCustomProgress, setLastCustomProgress] = useState(50);
   const [status, setStatus] = useState<NodeStatus>('pending');
   const [selectedAssignees, setSelectedAssignees] = useState<Assignee[]>([APP_CONFIG.DEFAULT_ASSIGNEES[0]]);
@@ -127,9 +128,18 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
       setCode(nodeToEdit.code);
       setLevel(nodeToEdit.level);
       setProgress(nodeToEdit.progress);
+      const initialOwn =
+        typeof nodeToEdit.ownProgress === 'number'
+          ? nodeToEdit.ownProgress
+          : nodeToEdit.status === 'completed'
+          ? 100
+          : nodeToEdit.status === 'pending'
+          ? 0
+          : nodeToEdit.progress;
+      setOwnProgress(initialOwn);
       setLastCustomProgress(
-        nodeToEdit.progress > 0 && nodeToEdit.progress < 100
-          ? nodeToEdit.progress
+        initialOwn > 0 && initialOwn < 100
+          ? initialOwn
           : 50
       );
       setStatus(nodeToEdit.status);
@@ -162,6 +172,7 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
       setCode(`PART-${Math.floor(1000 + Math.random() * 9000)}`);
       setLevel(childLevel);
       setProgress(0);
+      setOwnProgress(0);
       setLastCustomProgress(50);
       setStatus('pending');
       setSelectedAssignees(
@@ -184,6 +195,7 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
       setCode(`PROD-${Math.floor(1000 + Math.random() * 9000)}`);
       setLevel(1);
       setProgress(0);
+      setOwnProgress(0);
       setLastCustomProgress(50);
       setStatus('pending');
       setSelectedAssignees([APP_CONFIG.DEFAULT_ASSIGNEES[0]]);
@@ -210,21 +222,18 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
   const handleStatusChange = (newStatus: NodeStatus) => {
     setStatus(newStatus);
 
-    if (isParentNode) {
-      // Parent node progress is always calculated via roll-up
-      return;
-    }
-
     if (newStatus === 'pending') {
       if (progress > 0 && progress < 100) {
         setLastCustomProgress(progress);
       }
       setProgress(0);
+      setOwnProgress(0);
     } else if (newStatus === 'in_review' || newStatus === 'completed') {
       if (progress > 0 && progress < 100) {
         setLastCustomProgress(progress);
       }
       setProgress(100);
+      setOwnProgress(100);
     } else if (newStatus === 'delayed') {
       // Keep progress exactly what it was before setting delayed
       if (progress > 0 && progress < 100) {
@@ -235,12 +244,14 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
       if (progress === 0 || progress === 100) {
         const restored = lastCustomProgress > 0 && lastCustomProgress < 100 ? lastCustomProgress : 50;
         setProgress(restored);
+        setOwnProgress(restored);
       }
     }
   };
 
   const handleProgressSliderChange = (newVal: number) => {
     setProgress(newVal);
+    setOwnProgress(newVal);
     if (newVal > 0 && newVal < 100) {
       setLastCustomProgress(newVal);
     }
@@ -301,7 +312,8 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
       title: title.trim(),
       code: code.trim().toUpperCase(),
       level,
-      progress,
+      progress: status === 'completed' ? 100 : progress,
+      ownProgress: isParentNode ? ownProgress : status === 'completed' ? 100 : progress,
       status,
       assignees: finalAssignees,
       assignee: finalAssignees[0],
@@ -432,85 +444,167 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
             </div>
           </div>
 
-          {/* Progress Slider (Smart Locking based on parent state & status) */}
-          <div
-            className={`p-3.5 rounded-2xl border transition-all ${
-              isParentNode
-                ? 'bg-indigo-500/10 border-indigo-500/25'
-                : status === 'in_progress'
-                ? 'bg-white/10 dark:bg-slate-800/40 border-white/15'
-                : 'bg-slate-900/40 border-white/10'
-            }`}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <Sliders className="w-3.5 h-3.5 text-indigo-400" />
-                <label className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                  {t('node_progress')}
-                </label>
-
-                {isParentNode ? (
-                  <span className="flex items-center gap-1 text-[10px] font-bold text-indigo-300 bg-indigo-500/20 px-2 py-0.5 rounded-md border border-indigo-500/30">
-                    <Lock className="w-2.5 h-2.5" />
-                    Auto Roll-up
+          {/* Progress Section: Dual display for Parent nodes, single slider for Leaf nodes */}
+          {isParentNode ? (
+            <div className="space-y-3">
+              {/* 1. Overall Roll-up Progress (Read-only calculation) */}
+              <div className="p-3.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/25">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Sliders className="w-3.5 h-3.5 text-indigo-400" />
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                      {t('rollup_progress_label')}
+                    </span>
+                    <span className="flex items-center gap-1 text-[10px] font-bold text-indigo-300 bg-indigo-500/20 px-2 py-0.5 rounded-md border border-indigo-500/30">
+                      <Lock className="w-2.5 h-2.5" />
+                      Auto Roll-up
+                    </span>
+                  </div>
+                  <span className="text-sm font-extrabold text-indigo-400 tabular-nums">
+                    {progress}%
                   </span>
-                ) : status === 'pending' ? (
-                  <span className="flex items-center gap-1 text-[10px] font-bold text-slate-300 bg-slate-700/50 px-2 py-0.5 rounded-md border border-white/10">
-                    <Lock className="w-2.5 h-2.5" />
-                    0% (В очікуванні)
-                  </span>
-                ) : status === 'in_review' || status === 'completed' ? (
-                  <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-md border border-emerald-500/30">
-                    <Lock className="w-2.5 h-2.5" />
-                    100% ({status === 'completed' ? 'Завершено' : 'На перевірці'})
-                  </span>
-                ) : status === 'delayed' ? (
-                  <span className="flex items-center gap-1 text-[10px] font-bold text-rose-300 bg-rose-500/20 px-2 py-0.5 rounded-md border border-rose-500/30">
-                    <Lock className="w-2.5 h-2.5" />
-                    Зафіксовано ({progress}%)
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1 text-[10px] font-bold text-sky-300 bg-sky-500/20 px-2 py-0.5 rounded-md border border-sky-500/30">
-                    Регулюється вручну
-                  </span>
-                )}
+                </div>
+                <div className="w-full h-2 rounded-lg bg-slate-800 overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg transition-all duration-300"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-slate-400 mt-2 leading-tight flex items-center gap-1.5">
+                  <Info className="w-3.5 h-3.5 shrink-0 text-indigo-400" />
+                  <span>{t('progress_locked_hint')}</span>
+                </p>
               </div>
 
-              <span className="text-sm font-extrabold text-indigo-400 tabular-nums">
-                {progress}%
-              </span>
+              {/* 2. Parent's Dedicated Own Work Progress Slider */}
+              <div
+                className={`p-3.5 rounded-2xl border transition-all ${
+                  status === 'in_progress'
+                    ? 'bg-white/10 dark:bg-slate-800/40 border-white/15'
+                    : 'bg-slate-900/40 border-white/10'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-3.5 h-3.5 text-sky-400" />
+                    <label className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                      {t('node_own_progress')}
+                    </label>
+                    {status === 'pending' ? (
+                      <span className="flex items-center gap-1 text-[10px] font-bold text-slate-300 bg-slate-700/50 px-2 py-0.5 rounded-md border border-white/10">
+                        <Lock className="w-2.5 h-2.5" />
+                        0%
+                      </span>
+                    ) : status === 'completed' || status === 'in_review' ? (
+                      <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-md border border-emerald-500/30">
+                        <Lock className="w-2.5 h-2.5" />
+                        100%
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-[10px] font-bold text-sky-300 bg-sky-500/20 px-2 py-0.5 rounded-md border border-sky-500/30">
+                        Регулюється
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-sm font-extrabold text-sky-400 tabular-nums">
+                    {ownProgress}%
+                  </span>
+                </div>
+
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  disabled={status !== 'in_progress'}
+                  value={ownProgress}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setOwnProgress(val);
+                    if (val > 0 && val < 100) setLastCustomProgress(val);
+                  }}
+                  className={`w-full h-2 rounded-lg appearance-none transition-all ${
+                    status !== 'in_progress'
+                      ? 'bg-slate-800 opacity-50 cursor-not-allowed'
+                      : 'bg-slate-700 cursor-pointer accent-sky-500 hover:accent-sky-400'
+                  }`}
+                />
+                <p className="text-[10px] text-slate-400 mt-2 leading-tight flex items-center gap-1.5">
+                  <Info className="w-3.5 h-3.5 shrink-0 text-sky-400" />
+                  <span>{t('node_own_progress_hint')}</span>
+                </p>
+              </div>
             </div>
-
-            <input
-              type="range"
-              min="0"
-              max="100"
-              disabled={isSliderDisabled}
-              value={progress}
-              onChange={(e) => handleProgressSliderChange(Number(e.target.value))}
-              className={`w-full h-2 rounded-lg appearance-none transition-all ${
-                isSliderDisabled
-                  ? 'bg-slate-800 opacity-50 cursor-not-allowed'
-                  : 'bg-slate-700 cursor-pointer accent-indigo-500 hover:accent-indigo-400'
+          ) : (
+            <div
+              className={`p-3.5 rounded-2xl border transition-all ${
+                status === 'in_progress'
+                  ? 'bg-white/10 dark:bg-slate-800/40 border-white/15'
+                  : 'bg-slate-900/40 border-white/10'
               }`}
-            />
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Sliders className="w-3.5 h-3.5 text-indigo-400" />
+                  <label className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                    {t('node_progress')}
+                  </label>
 
-            {/* Explanatory Tooltip / Notice */}
-            <p className="text-[10px] text-slate-400 mt-2 leading-tight flex items-center gap-1.5">
-              <Info className="w-3.5 h-3.5 shrink-0 text-indigo-400" />
-              <span>
-                {isParentNode
-                  ? t('progress_locked_hint')
-                  : status === 'pending'
-                  ? t('status_pending_hint')
-                  : status === 'in_review' || status === 'completed'
-                  ? t('status_completed_hint')
-                  : status === 'delayed'
-                  ? t('status_delayed_hint')
-                  : t('status_in_progress_hint')}
-              </span>
-            </p>
-          </div>
+                  {status === 'pending' ? (
+                    <span className="flex items-center gap-1 text-[10px] font-bold text-slate-300 bg-slate-700/50 px-2 py-0.5 rounded-md border border-white/10">
+                      <Lock className="w-2.5 h-2.5" />
+                      0% (В очікуванні)
+                    </span>
+                  ) : status === 'in_review' || status === 'completed' ? (
+                    <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-md border border-emerald-500/30">
+                      <Lock className="w-2.5 h-2.5" />
+                      100% ({status === 'completed' ? 'Завершено' : 'На перевірці'})
+                    </span>
+                  ) : status === 'delayed' ? (
+                    <span className="flex items-center gap-1 text-[10px] font-bold text-rose-300 bg-rose-500/20 px-2 py-0.5 rounded-md border border-rose-500/30">
+                      <Lock className="w-2.5 h-2.5" />
+                      Зафіксовано ({progress}%)
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-[10px] font-bold text-sky-300 bg-sky-500/20 px-2 py-0.5 rounded-md border border-sky-500/30">
+                      Регулюється вручну
+                    </span>
+                  )}
+                </div>
+
+                <span className="text-sm font-extrabold text-indigo-400 tabular-nums">
+                  {progress}%
+                </span>
+              </div>
+
+              <input
+                type="range"
+                min="0"
+                max="100"
+                disabled={status !== 'in_progress'}
+                value={progress}
+                onChange={(e) => handleProgressSliderChange(Number(e.target.value))}
+                className={`w-full h-2 rounded-lg appearance-none transition-all ${
+                  status !== 'in_progress'
+                    ? 'bg-slate-800 opacity-50 cursor-not-allowed'
+                    : 'bg-slate-700 cursor-pointer accent-indigo-500 hover:accent-indigo-400'
+                }`}
+              />
+
+              {/* Explanatory Tooltip / Notice */}
+              <p className="text-[10px] text-slate-400 mt-2 leading-tight flex items-center gap-1.5">
+                <Info className="w-3.5 h-3.5 shrink-0 text-indigo-400" />
+                <span>
+                  {status === 'pending'
+                    ? t('status_pending_hint')
+                    : status === 'in_review' || status === 'completed'
+                    ? t('status_completed_hint')
+                    : status === 'delayed'
+                    ? t('status_delayed_hint')
+                    : t('status_in_progress_hint')}
+                </span>
+              </p>
+            </div>
+          )}
 
           {/* Status & Norm-Hours */}
           <div className="grid grid-cols-2 gap-3">

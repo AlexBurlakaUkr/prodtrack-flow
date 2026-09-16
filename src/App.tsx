@@ -103,7 +103,7 @@ export const App: React.FC = () => {
   }, [gradientTheme]);
 
   // Load Database Data
-  const loadDatabaseData = useCallback(async () => {
+  const loadDatabaseData = useCallback(async (preferredProjectId?: string) => {
     try {
       await initializeDatabase();
 
@@ -118,14 +118,19 @@ export const App: React.FC = () => {
       setTeam(allTeam.length > 0 ? allTeam : APP_CONFIG.DEFAULT_ASSIGNEES);
 
       // Determine active project
-      let currentId = activeProjectId;
-      const activeSetting = await db.settings.get('active_project_id');
-      if (activeSetting && allProjects.some((p) => p.id === activeSetting.value)) {
-        currentId = activeSetting.value;
-      } else if (!allProjects.some((p) => p.id === currentId) && allProjects.length > 0) {
-        currentId = allProjects[0].id;
+      let currentId = preferredProjectId || localStorage.getItem('active_project_id') || DEMO_PROJECT_ID;
+      if (!preferredProjectId) {
+        const activeSetting = await db.settings.get('active_project_id');
+        if (activeSetting && allProjects.some((p) => p.id === activeSetting.value)) {
+          currentId = activeSetting.value;
+        } else if (!allProjects.some((p) => p.id === currentId) && allProjects.length > 0) {
+          currentId = allProjects[0].id;
+        }
       }
+
       setActiveProjectId(currentId);
+      await db.settings.put({ key: 'active_project_id', value: currentId });
+      localStorage.setItem('active_project_id', currentId);
 
       // Load nodes & orders for current project
       const projNodes = await db.nodes.where('projectId').equals(currentId).toArray();
@@ -139,7 +144,7 @@ export const App: React.FC = () => {
     } catch (err) {
       console.error('Failed loading data from IndexedDB:', err);
     }
-  }, [activeProjectId]);
+  }, []);
 
   useEffect(() => {
     loadDatabaseData();
@@ -154,6 +159,7 @@ export const App: React.FC = () => {
   const handleSelectProject = async (projectId: string) => {
     setActiveProjectId(projectId);
     setSelectedOrderId(null); // Reset to Master Blueprint
+    localStorage.setItem('active_project_id', projectId);
     await db.settings.put({ key: 'active_project_id', value: projectId });
 
     const projNodes = await db.nodes.where('projectId').equals(projectId).toArray();
@@ -187,6 +193,10 @@ export const App: React.FC = () => {
       const allProjNodes = await db.nodes.where('projectId').equals(node.projectId).toArray();
       setNodes(recalculateNodeRollups(allProjNodes));
 
+      // Real-time synchronization of Orders tab, Analytics, and Gantt
+      const allProjOrders = await db.orders.where('projectId').equals(node.projectId).toArray();
+      setOrders(allProjOrders);
+
       if (node.progress === 100) {
         confetti({
           particleCount: 50,
@@ -204,13 +214,17 @@ export const App: React.FC = () => {
     try {
       if (!activeProject) return;
       const targetNode = nodes.find((n) => n.id === nodeId);
-      const updatedNodes = await deleteNodeCascade(
+      await deleteNodeCascade(
         nodeId,
         activeProject.id,
         targetNode?.orderId || selectedOrderId
       );
       const allProjNodes = await db.nodes.where('projectId').equals(activeProject.id).toArray();
       setNodes(recalculateNodeRollups(allProjNodes));
+
+      // Real-time synchronization of Orders tab, Analytics, and Gantt
+      const allProjOrders = await db.orders.where('projectId').equals(activeProject.id).toArray();
+      setOrders(allProjOrders);
     } catch (err) {
       console.error('Failed to delete node:', err);
     }
@@ -220,7 +234,12 @@ export const App: React.FC = () => {
   const handleSaveOrder = async (order: ProductionOrder, templateId?: string) => {
     try {
       await saveOrderAndInstantiateBOM(order, templateId);
-      await loadDatabaseData();
+      
+      // Directly reload current project nodes & orders
+      const projNodes = await db.nodes.where('projectId').equals(order.projectId).toArray();
+      setNodes(recalculateNodeRollups(projNodes));
+      const projOrders = await db.orders.where('projectId').equals(order.projectId).toArray();
+      setOrders(projOrders);
 
       confetti({
         particleCount: 80,
@@ -239,7 +258,11 @@ export const App: React.FC = () => {
       if (selectedOrderId === orderId) {
         setSelectedOrderId(null);
       }
-      await loadDatabaseData();
+      // Directly reload current project nodes & orders
+      const projNodes = await db.nodes.where('projectId').equals(activeProjectId).toArray();
+      setNodes(recalculateNodeRollups(projNodes));
+      const projOrders = await db.orders.where('projectId').equals(activeProjectId).toArray();
+      setOrders(projOrders);
     } catch (err) {
       console.error('Failed to delete order:', err);
     }
@@ -279,7 +302,7 @@ export const App: React.FC = () => {
         await db.nodes.put(initialRootNode);
       }
 
-      await loadDatabaseData();
+      await loadDatabaseData(project.id);
       await handleSelectProject(project.id);
     } catch (err) {
       console.error('Failed to save project:', err);
@@ -466,6 +489,7 @@ export const App: React.FC = () => {
           <>
             {activeTab === 'bom' && (
               <BomTreeView
+                key={activeProject.id}
                 project={activeProject}
                 nodes={nodes}
                 orders={orders}
@@ -480,6 +504,7 @@ export const App: React.FC = () => {
 
             {activeTab === 'orders' && (
               <OrderList
+                key={activeProject.id}
                 project={activeProject}
                 orders={orders}
                 templates={templates}
@@ -496,6 +521,7 @@ export const App: React.FC = () => {
 
             {activeTab === 'analytics' && (
               <AnalyticsDashboard
+                key={activeProject.id}
                 project={activeProject}
                 nodes={nodes}
                 orders={orders}
@@ -505,6 +531,7 @@ export const App: React.FC = () => {
 
             {activeTab === 'gantt' && (
               <GanttTimeline
+                key={activeProject.id}
                 project={activeProject}
                 nodes={nodes}
                 orders={orders}

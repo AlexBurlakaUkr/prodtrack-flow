@@ -206,6 +206,25 @@ export async function saveOrderAndInstantiateBOM(
     }));
   }
 
+  // If still no base nodes (brand new project or empty custom order), create a default Level 1 End Item
+  if (baseNodes.length === 0) {
+    const defaultRootId = `node-root-${Date.now()}`;
+    baseNodes = [
+      {
+        id: defaultRootId,
+        parentId: null,
+        title: order.title || `Кінцевий виріб (${order.orderNumber})`,
+        code: `${order.orderNumber}-L1`,
+        level: 1,
+        baseNormHours: 10,
+        baseBatchQuantity: 1,
+        unit: 'units',
+        notes: order.notes || 'Початковий кінцевий виріб для нового замовлення',
+        orderIndex: 0,
+      },
+    ];
+  }
+
   const team = await db.team.toArray();
   const defaultLead = order.assignedLead || team[0] || APP_CONFIG.DEFAULT_ASSIGNEES[0];
   const multiplier = Math.max(1, order.batchQuantity);

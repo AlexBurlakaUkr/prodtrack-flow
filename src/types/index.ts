@@ -20,7 +20,8 @@ export interface BOMNode {
   title: string;
   code: string;
   level: NodeLevel;
-  progress: number; // 0 to 100
+  progress: number; // 0 to 100 (Overall rolled-up progress)
+  ownProgress?: number; // 0 to 100 (Node's own labor progress, distinct from rolled-up children)
   assignees: Assignee[]; // Multi-assignee support
   assignee?: Assignee; // Optional backward compatibility
   image?: string; // Base64 or URL
