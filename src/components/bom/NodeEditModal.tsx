@@ -17,6 +17,7 @@ import { useI18n } from '../../locales';
 import { APP_CONFIG } from '../../config/AppConfig';
 import { Modal } from '../ui/Modal';
 import { Avatar } from '../ui/Avatar';
+import { FieldLabel } from '../ui/FieldLabel';
 import { db } from '../../services/db';
 import { getDelayConfig, evaluateNodeDelay } from '../../services/delayService';
 
@@ -29,6 +30,7 @@ interface NodeEditModalProps {
   orderId?: string | null;
   hasChildren?: boolean;
   onSave: (node: BOMNode) => void;
+  existingNodes?: BOMNode[];
 }
 
 export const NodeEditModal: React.FC<NodeEditModalProps> = ({
@@ -40,6 +42,7 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
   orderId = null,
   hasChildren = false,
   onSave,
+  existingNodes = [],
 }) => {
   const { t } = useI18n();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -58,9 +61,9 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
   const [selectedAssignees, setSelectedAssignees] = useState<Assignee[]>([APP_CONFIG.DEFAULT_ASSIGNEES[0]]);
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState(new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0]);
-  const [batchQuantity, setBatchQuantity] = useState(1);
+  const [batchQuantity, setBatchQuantity] = useState<number | string>(1);
   const [unit, setUnit] = useState('pcs');
-  const [normHours, setNormHours] = useState<number>(8);
+  const [normHours, setNormHours] = useState<number | string>(8);
   const [childrenTotalHours, setChildrenTotalHours] = useState<number>(0);
   const [notes, setNotes] = useState('');
   const [image, setImage] = useState<string | undefined>(undefined);
@@ -299,8 +302,22 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
       selectedAssignees.length > 0 ? selectedAssignees : [APP_CONFIG.DEFAULT_ASSIGNEES[0]];
 
     const assignedOrderId = nodeToEdit ? nodeToEdit.orderId : orderId || null;
-    const finalHours = Number(normHours) >= 0 ? Number(normHours) : 1;
+    const parsedH = parseFloat(String(normHours));
+    const finalHours = !isNaN(parsedH) && parsedH > 0 ? parsedH : 1;
     const finalBaseHours = nodeToEdit?.baseNormHours || finalHours;
+
+    const parsedQ = parseInt(String(batchQuantity), 10);
+    const finalBatchQuantity = !isNaN(parsedQ) && parsedQ > 0 ? parsedQ : 1;
+    const finalBaseBatchQ = nodeToEdit?.baseBatchQuantity || finalBatchQuantity;
+
+    const targetParentId = nodeToEdit ? nodeToEdit.parentId : parentNode ? parentNode.id : null;
+    const siblings = (existingNodes || []).filter((n) => n.parentId === targetParentId);
+    const maxOrder = siblings.reduce((max, s) => Math.max(max, s.orderIndex ?? 0), -1);
+    const nextOrderIndex = maxOrder + 1;
+    const finalOrderIndex =
+      nodeToEdit && typeof nodeToEdit.orderIndex === 'number'
+        ? nodeToEdit.orderIndex
+        : nextOrderIndex;
 
     const updatedNode: BOMNode = {
       id: nodeToEdit
@@ -308,7 +325,7 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
         : `node-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       projectId,
       orderId: assignedOrderId,
-      parentId: nodeToEdit ? nodeToEdit.parentId : parentNode ? parentNode.id : null,
+      parentId: targetParentId,
       title: title.trim(),
       code: code.trim().toUpperCase(),
       level,
@@ -319,8 +336,8 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
       assignee: finalAssignees[0],
       startDate,
       dueDate,
-      baseBatchQuantity: nodeToEdit?.baseBatchQuantity || Number(batchQuantity) || 1,
-      batchQuantity: Number(batchQuantity) || 1,
+      baseBatchQuantity: finalBaseBatchQ,
+      batchQuantity: finalBatchQuantity,
       unit: unit.trim() || 'pcs',
       baseNormHours: finalBaseHours,
       normHours: finalHours,
@@ -329,7 +346,7 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
       delayReasons: delayReasons.length > 0 ? delayReasons : undefined,
       delayNotes: delayNotes.trim() || undefined,
       image,
-      orderIndex: nodeToEdit ? nodeToEdit.orderIndex : Date.now(),
+      orderIndex: finalOrderIndex,
     };
 
     onSave(updatedNode);
@@ -397,9 +414,11 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
         <div className="space-y-4">
           {/* Title */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              {t('node_title')} *
-            </label>
+            <FieldLabel
+              label={t('node_title')}
+              tooltip={t('field_tooltip_node_title')}
+              required={true}
+            />
             <input
               type="text"
               value={title}
@@ -413,9 +432,11 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
           {/* Code & Level */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                {t('node_code')} *
-              </label>
+              <FieldLabel
+                label={t('node_code')}
+                tooltip={t('field_tooltip_node_code')}
+                required={true}
+              />
               <input
                 type="text"
                 value={code}
@@ -427,9 +448,10 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                {t('level')}
-              </label>
+              <FieldLabel
+                label={t('level')}
+                tooltip={t('field_tooltip_node_level')}
+              />
               <select
                 value={level}
                 onChange={(e) => setLevel(Number(e.target.value) as NodeLevel)}
@@ -626,18 +648,31 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-sky-400" />
-                <span>{t('node_own_norm_hours_short')}</span>
-              </label>
+              <FieldLabel
+                label={t('node_own_norm_hours_short')}
+                tooltip={t('field_tooltip_norm_hours')}
+                icon={<Clock className="w-3.5 h-3.5 text-sky-400" />}
+              />
 
               <div className="relative">
                 <input
-                  type="number"
-                  min="0"
-                  step="0.5"
+                  type="text"
+                  inputMode="decimal"
                   value={normHours}
-                  onChange={(e) => setNormHours(Math.max(0, Number(e.target.value)))}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '' || /^\d*([.,]\d*)?$/.test(val)) {
+                      setNormHours(val.replace(',', '.'));
+                    }
+                  }}
+                  onBlur={() => {
+                    const parsed = parseFloat(String(normHours));
+                    if (isNaN(parsed) || parsed <= 0) {
+                      setNormHours(1);
+                    } else {
+                      setNormHours(parsed);
+                    }
+                  }}
                   className="w-full px-3.5 py-2 text-xs rounded-xl border text-slate-900 dark:text-white outline-none bg-white/30 dark:bg-slate-800/60 border-white/20 dark:border-white/10 focus:ring-2 focus:ring-indigo-500/50 font-medium"
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-semibold pointer-events-none">
@@ -674,13 +709,15 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
 
           {/* Multi-Assignee Selection */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <Users className="w-3.5 h-3.5 text-indigo-400" />
-                <span>{t('node_assignee')} ({selectedAssignees.length})</span>
-              </span>
+            <div className="flex items-center justify-between mb-1.5">
+              <FieldLabel
+                label={`${t('node_assignee')} (${selectedAssignees.length})`}
+                tooltip={t('field_tooltip_node_assignee')}
+                icon={<Users className="w-3.5 h-3.5 text-indigo-400" />}
+                className="mb-0"
+              />
               <span className="text-[10px] text-slate-400">Click to assign</span>
-            </label>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-36 overflow-y-auto custom-scrollbar p-1">
               {teamList.map((usr) => {
                 const isSelected = selectedAssignees.some((a) => a.id === usr.id);
@@ -715,9 +752,10 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
           {/* Start & Due Date */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                {t('start_date')}
-              </label>
+              <FieldLabel
+                label={t('start_date')}
+                tooltip={t('field_tooltip_start_date')}
+              />
               <input
                 type="date"
                 value={startDate}
@@ -726,9 +764,10 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                {t('target_date')}
-              </label>
+              <FieldLabel
+                label={t('target_date')}
+                tooltip={t('field_tooltip_due_date')}
+              />
               <input
                 type="date"
                 value={dueDate}
@@ -741,21 +780,36 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
           {/* Batch Quantity & Unit */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                {t('node_batch_qty')}
-              </label>
+              <FieldLabel
+                label={t('node_batch_qty')}
+                tooltip={t('field_tooltip_batch_qty')}
+              />
               <input
-                type="number"
-                min="1"
+                type="text"
+                inputMode="numeric"
                 value={batchQuantity}
-                onChange={(e) => setBatchQuantity(Number(e.target.value))}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '' || /^\d*$/.test(val)) {
+                    setBatchQuantity(val);
+                  }
+                }}
+                onBlur={() => {
+                  const parsed = parseInt(String(batchQuantity), 10);
+                  if (isNaN(parsed) || parsed <= 0) {
+                    setBatchQuantity(1);
+                  } else {
+                    setBatchQuantity(parsed);
+                  }
+                }}
                 className="w-full px-3.5 py-2 text-xs rounded-xl bg-white/30 dark:bg-slate-800/60 border border-white/20 dark:border-white/10 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500/50 outline-none"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                {t('unit')}
-              </label>
+              <FieldLabel
+                label={t('unit')}
+                tooltip={t('field_tooltip_unit')}
+              />
               <input
                 type="text"
                 value={unit}
@@ -810,9 +864,10 @@ export const NodeEditModal: React.FC<NodeEditModalProps> = ({
 
           {/* Technical Notes */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              {t('node_notes')}
-            </label>
+            <FieldLabel
+              label={t('node_notes')}
+              tooltip={t('field_tooltip_notes')}
+            />
             <textarea
               rows={3}
               value={notes}

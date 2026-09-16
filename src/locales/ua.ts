@@ -136,6 +136,8 @@ export const ua: Record<TranslationKey, string> = {
   filter_by_status: 'Фільтр за статусом',
   filter_by_assignee: 'Фільтр за фахівцем',
   no_matching_nodes: 'Не знайдено компонентів за вказаними фільтрами.',
+  move_up: 'Перемістити вгору (пріоритет)',
+  move_down: 'Перемістити вниз',
   
   // Orders Module
   orders_title: 'Виробничі замовлення та багатосерійні партії',
@@ -361,7 +363,7 @@ export const ua: Record<TranslationKey, string> = {
   dev_title: 'Інформація про розробника',
   dev_studio_name: 'OBStudio',
   dev_contact_email: 'obgamestudio@gmail.com',
-  dev_edition: 'v1.0.2 • Desktop Edition (Windows)',
+  dev_edition: 'v1.0.3 • Desktop Edition (Windows)',
   dev_tagline: 'Розробка сучасних виробничих рішень та високоефективних настільних додатків',
   dev_contact_btn: 'Написати розробнику (Email)',
 
@@ -416,4 +418,33 @@ export const ua: Record<TranslationKey, string> = {
   break_elapsed: 'Пройшло',
   break_duration: 'Тривалість',
   break_progress: 'Прогрес перерви',
+  unassigned: 'Не призначено',
+
+  // Autostart Settings
+  setting_autostart_title: 'Автозапуск при старті системи',
+  setting_autostart_desc: 'Автоматично відкривати встановлений додаток ProdTrack Flow під час увімкнення комп’ютера',
+
+  // Field Explanatory Tooltips
+  field_tooltip_node_title: 'Повна назва деталі, складального вузла або кінцевого виробу',
+  field_tooltip_node_code: 'Унікальний шифр креслення, артикул або номенклатурний номер',
+  field_tooltip_node_level: 'Ієрархічний рівень входження у виробі (L1 — виріб, L2..L5 — вузли та деталі)',
+  field_tooltip_norm_hours: 'Трудомісткість виготовлення або обробки конкретного вузла в нормо-годинах',
+  field_tooltip_node_assignee: 'Фахівці або відповідальні робітники, закріплені за цим вузлом',
+  field_tooltip_batch_qty: 'Кількість одиниць даного компонента для поточної партії',
+  field_tooltip_unit: 'Одиниця виміру компонента (шт, кг, м, од тощо)',
+  field_tooltip_start_date: 'Планова дата початку виготовлення або обробки даного вузла',
+  field_tooltip_due_date: 'Кінцевий термін (дедлайн) завершення робіт за цим вузлом',
+  field_tooltip_notes: 'Технічні вказівки, коментарі або технологічні вимоги до виробу',
+  field_tooltip_order_title: 'Назва виробничого замовлення або найменування партії',
+  field_tooltip_order_number: 'Унікальний номер виробничого замовлення для обліку',
+  field_tooltip_customer_name: 'Назва замовника, контрагента або внутрішнього клієнта',
+  field_tooltip_assigned_lead: 'Головний відповідальний інженер або бригадир замовлення',
+  field_tooltip_assigned_team: 'Команда майстрів та фахівців, що виконують замовлення',
+  field_tooltip_base_template: 'Шаблон виробу, з якого автоматично генерується дерево BOM',
+  field_tooltip_project_name: 'Загальна назва виробничого проєкту або лінійки виробів',
+  field_tooltip_project_code: 'Ідентифікаційний код або артикул проєкту',
+  field_tooltip_target_units: 'Планова загальна кількість одиниць продукції для випуску',
+  field_tooltip_description: 'Короткий опис, призначення або технічні характеристики',
+  field_tooltip_template_name: 'Назва типового шаблону виробу для багаторазового створення',
+  field_tooltip_template_code: 'Код або шифр типового шаблону',
 };

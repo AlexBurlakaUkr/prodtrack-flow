@@ -1,6 +1,6 @@
 import React from 'react';
 import { Sparkles, X } from 'lucide-react';
-import { ProductTemplate } from '../../types';
+import { ProductTemplate, Assignee } from '../../types';
 import { useI18n } from '../../locales';
 import { TemplateManager } from './TemplateManager';
 import { Modal } from '../ui/Modal';
@@ -20,6 +20,7 @@ interface TemplateManagerModalProps {
     customerName: string
   ) => void;
   searchQuery: string;
+  team?: Assignee[];
 }
 
 export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
@@ -30,6 +31,7 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
   onDeleteTemplate,
   onInstantiateTemplate,
   searchQuery,
+  team,
 }) => {
   const { t } = useI18n();
 
@@ -57,6 +59,7 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
       <div className="max-h-[75vh] overflow-y-auto custom-scrollbar pr-1 -mx-2 px-2">
         <TemplateManager
           templates={templates}
+          team={team}
           onSaveTemplate={onSaveTemplate}
           onDeleteTemplate={onDeleteTemplate}
           onInstantiateTemplate={(tmplId, pName, pCode, batchQty, sDate, cName) => {

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Project } from '../../types';
 import { useI18n } from '../../locales';
 import { Modal } from '../ui/Modal';
+import { FieldLabel } from '../ui/FieldLabel';
 
 interface ProjectModalProps {
   isOpen: boolean;
@@ -22,7 +23,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   const [code, setCode] = useState('');
   const [archetype, setArchetype] = useState('');
   const [category, setCategory] = useState('');
-  const [targetUnits, setTargetUnits] = useState(100);
+  const [targetUnits, setTargetUnits] = useState<number | string>(100);
   const [description, setDescription] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -58,13 +59,16 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
     const projectId = projectToEdit ? projectToEdit.id : `proj-${Date.now()}`;
     const rootNodeId = projectToEdit ? projectToEdit.rootNodeId : `node-root-${Date.now()}`;
 
+    const parsedUnits = parseInt(String(targetUnits), 10);
+    const finalUnits = !isNaN(parsedUnits) && parsedUnits > 0 ? parsedUnits : 100;
+
     const updatedProj: Project = {
       id: projectId,
       name: name.trim(),
       code: code.trim().toUpperCase(),
       archetype: archetype.trim(),
       category: category.trim(),
-      targetOutputUnits: Number(targetUnits) || 100,
+      targetOutputUnits: finalUnits,
       description: description.trim(),
       rootNodeId,
       createdAt: projectToEdit ? projectToEdit.createdAt : new Date().toISOString(),
@@ -102,9 +106,11 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
     >
       <div className="space-y-4">
         <div>
-          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-            {t('project_name')} *
-          </label>
+          <FieldLabel
+            label={t('project_name')}
+            tooltip={t('field_tooltip_project_name')}
+            required={true}
+          />
           <input
             type="text"
             value={name}
@@ -117,9 +123,11 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              {t('project_code')} *
-            </label>
+            <FieldLabel
+              label={t('project_code')}
+              tooltip={t('field_tooltip_project_code')}
+              required={true}
+            />
             <input
               type="text"
               value={code}
@@ -130,14 +138,22 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              {t('target_units')}
-            </label>
+            <FieldLabel
+              label={t('target_units')}
+              tooltip={t('field_tooltip_target_units')}
+            />
             <input
-              type="number"
-              min="1"
+              type="text"
+              inputMode="numeric"
               value={targetUnits}
-              onChange={(e) => setTargetUnits(Number(e.target.value))}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === '' || /^\d*$/.test(val)) setTargetUnits(val);
+              }}
+              onBlur={() => {
+                const parsed = parseInt(String(targetUnits), 10);
+                setTargetUnits(!isNaN(parsed) && parsed > 0 ? parsed : 100);
+              }}
               className="w-full px-3.5 py-2 text-xs rounded-xl bg-white/30 dark:bg-slate-800/60 border border-white/20 dark:border-white/10 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500/50 outline-none"
             />
           </div>
@@ -170,9 +186,10 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-            {t('project_desc')}
-          </label>
+          <FieldLabel
+            label={t('project_desc')}
+            tooltip={t('field_tooltip_description')}
+          />
           <textarea
             rows={3}
             value={description}

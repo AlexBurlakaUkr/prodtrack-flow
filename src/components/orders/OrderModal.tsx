@@ -4,6 +4,7 @@ import { useI18n } from '../../locales';
 import { APP_CONFIG } from '../../config/AppConfig';
 import { Modal } from '../ui/Modal';
 import { Avatar } from '../ui/Avatar';
+import { FieldLabel } from '../ui/FieldLabel';
 import { db } from '../../services/db';
 import { Sparkles, Layers, Check } from 'lucide-react';
 
@@ -42,8 +43,8 @@ export const OrderModal: React.FC<OrderModalProps> = ({
   const [orderNumber, setOrderNumber] = useState('');
   const [title, setTitle] = useState('');
   const [customerName, setCustomerName] = useState('');
-  const [batchQuantity, setBatchQuantity] = useState(5);
-  const [completedUnits, setCompletedUnits] = useState(0);
+  const [batchQuantity, setBatchQuantity] = useState<number | string>(5);
+  const [completedUnits, setCompletedUnits] = useState<number | string>(0);
   const [status, setStatus] = useState<OrderStatus>('in_progress');
   const [priority, setPriority] = useState<OrderPriority>('medium');
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
@@ -235,9 +236,11 @@ export const OrderModal: React.FC<OrderModalProps> = ({
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                  {t('order_number')} *
-                </label>
+                <FieldLabel
+                  label={t('order_number')}
+                  tooltip={t('field_tooltip_order_number')}
+                  required={true}
+                />
                 <input
                   type="text"
                   value={orderNumber}
@@ -268,9 +271,11 @@ export const OrderModal: React.FC<OrderModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                Order Title / Batch Description *
-              </label>
+              <FieldLabel
+                label="Order Title / Batch Description"
+                tooltip={t('field_tooltip_order_title')}
+                required={true}
+              />
               <input
                 type="text"
                 value={title}
@@ -282,9 +287,11 @@ export const OrderModal: React.FC<OrderModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                {t('customer_name')} *
-              </label>
+              <FieldLabel
+                label={t('customer_name')}
+                tooltip={t('field_tooltip_customer_name')}
+                required={true}
+              />
               <input
                 type="text"
                 value={customerName}
@@ -320,14 +327,22 @@ export const OrderModal: React.FC<OrderModalProps> = ({
             {/* Batch Quantities */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                  {t('batch_quantity')}
-                </label>
+                <FieldLabel
+                  label={t('batch_quantity')}
+                  tooltip={t('field_tooltip_batch_qty')}
+                />
                 <input
-                  type="number"
-                  min="1"
+                  type="text"
+                  inputMode="numeric"
                   value={batchQuantity}
-                  onChange={(e) => setBatchQuantity(Number(e.target.value))}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '' || /^\d*$/.test(val)) setBatchQuantity(val);
+                  }}
+                  onBlur={() => {
+                    const parsed = parseInt(String(batchQuantity), 10);
+                    setBatchQuantity(!isNaN(parsed) && parsed > 0 ? parsed : 1);
+                  }}
                   className="w-full px-3.5 py-2 text-xs rounded-xl bg-white/30 dark:bg-slate-800/60 border border-white/20 dark:border-white/10 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500/50 outline-none"
                 />
               </div>
@@ -337,11 +352,17 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                   {t('completed_units')}
                 </label>
                 <input
-                  type="number"
-                  min="0"
-                  max={batchQuantity}
+                  type="text"
+                  inputMode="numeric"
                   value={completedUnits}
-                  onChange={(e) => setCompletedUnits(Number(e.target.value))}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '' || /^\d*$/.test(val)) setCompletedUnits(val);
+                  }}
+                  onBlur={() => {
+                    const parsed = parseInt(String(completedUnits), 10);
+                    setCompletedUnits(!isNaN(parsed) && parsed >= 0 ? parsed : 0);
+                  }}
                   className="w-full px-3.5 py-2 text-xs rounded-xl bg-white/30 dark:bg-slate-800/60 border border-white/20 dark:border-white/10 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500/50 outline-none"
                 />
               </div>
@@ -350,9 +371,10 @@ export const OrderModal: React.FC<OrderModalProps> = ({
             {/* Dates */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                  {t('start_date')}
-                </label>
+                <FieldLabel
+                  label={t('start_date')}
+                  tooltip={t('field_tooltip_start_date')}
+                />
                 <input
                   type="date"
                   value={startDate}
@@ -361,9 +383,10 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                  {t('target_date')}
-                </label>
+                <FieldLabel
+                  label={t('target_date')}
+                  tooltip={t('field_tooltip_due_date')}
+                />
                 <input
                   type="date"
                   value={targetDate}
@@ -389,9 +412,10 @@ export const OrderModal: React.FC<OrderModalProps> = ({
 
             {/* Lead Specialist Selector */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                Lead Production Engineer
-              </label>
+              <FieldLabel
+                label="Lead Production Engineer"
+                tooltip={t('field_tooltip_assigned_lead')}
+              />
               <select
                 value={assignedLead.id}
                 onChange={(e) => {

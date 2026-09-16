@@ -54,13 +54,18 @@ export const BomTreeGrid: React.FC<BomTreeGridProps> = ({
         map.set(n.parentId, list);
       }
     });
+    map.forEach((list) => {
+      list.sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+    });
     return map;
   }, [nodes]);
 
   // Flatten tree based on expanded status
   const visibleRows = useMemo(() => {
     const result: BOMNode[] = [];
-    const roots = nodes.filter((n) => n.parentId === null).sort((a, b) => a.orderIndex - b.orderIndex);
+    const roots = nodes
+      .filter((n) => n.parentId === null)
+      .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
 
     const traverse = (node: BOMNode) => {
       const isVisibleInFilter = filteredNodes.some((fn) => fn.id === node.id);
@@ -184,11 +189,14 @@ export const BomTreeGrid: React.FC<BomTreeGridProps> = ({
                     )}
 
                     {/* Title and Code */}
-                    <div className="min-w-0">
-                      <div className="font-bold text-slate-900 dark:text-white truncate max-w-[280px]">
+                    <div className="min-w-0 max-w-[220px] sm:max-w-[280px]">
+                      <div
+                        className="font-bold text-slate-900 dark:text-white truncate"
+                        title={node.title}
+                      >
                         {node.title}
                       </div>
-                      <div className="text-[10px] font-mono text-slate-400">
+                      <div className="text-[10px] font-mono text-slate-400 truncate">
                         {node.code}
                       </div>
                     </div>

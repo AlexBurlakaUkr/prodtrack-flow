@@ -34,11 +34,16 @@ export const BomHorizontalTree: React.FC<BomHorizontalTreeProps> = ({
         map.set(n.parentId, list);
       }
     });
+    map.forEach((list) => {
+      list.sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+    });
     return map;
   }, [nodes]);
 
   const treeRoots = React.useMemo(() => {
-    return nodes.filter((n) => n.parentId === null).sort((a, b) => a.orderIndex - b.orderIndex);
+    return nodes
+      .filter((n) => n.parentId === null)
+      .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
   }, [nodes]);
 
   const renderHorizontalNode = (node: BOMNode) => {

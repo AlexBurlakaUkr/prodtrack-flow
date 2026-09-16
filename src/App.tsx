@@ -23,6 +23,7 @@ import {
   instantiateTemplateToProject,
   saveOrderAndInstantiateBOM,
   deleteOrderCascade,
+  moveNodeOrder,
 } from './services/db';
 import { DEMO_PROJECT_ID } from './services/demoData';
 import { recalculateNodeRollups } from './services/rollupCalculator';
@@ -230,6 +231,18 @@ export const App: React.FC = () => {
     }
   };
 
+  // Reorder node priority (sibling move up / down)
+  const handleMoveNode = async (nodeId: string, direction: 'up' | 'down') => {
+    try {
+      if (!activeProject) return;
+      await moveNodeOrder(nodeId, direction);
+      const allProjNodes = await db.nodes.where('projectId').equals(activeProject.id).toArray();
+      setNodes(recalculateNodeRollups(allProjNodes));
+    } catch (err) {
+      console.error('Failed to move node order:', err);
+    }
+  };
+
   // Save Order with automated BOM cloning and batch-size scaling
   const handleSaveOrder = async (order: ProductionOrder, templateId?: string) => {
     try {
@@ -337,7 +350,7 @@ export const App: React.FC = () => {
     try {
       const tmplName = `${activeProject.name} Blueprint`;
       const tmplCode = `TMPL-${activeProject.code}`;
-      await saveProjectAsTemplate(activeProject.id, tmplName, tmplCode, activeProject.description);
+      await saveProjectAsTemplate(activeProject.id, tmplName, tmplCode, activeProject.description, selectedOrderId);
       const updated = await db.templates.toArray();
       setTemplates(updated);
       setTemplatesModalOpen(true);
@@ -578,6 +591,7 @@ export const App: React.FC = () => {
         isOpen={templatesModalOpen}
         onClose={() => setTemplatesModalOpen(false)}
         templates={templates}
+        team={team}
         onSaveTemplate={handleSaveTemplate}
         onDeleteTemplate={handleDeleteTemplate}
         onInstantiateTemplate={handleInstantiateTemplate}

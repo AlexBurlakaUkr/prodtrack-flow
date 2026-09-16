@@ -204,11 +204,11 @@ export function buildBOMTree(nodes: BOMNode[], rootParentId: string | null = nul
       if (!parent.children) parent.children = [];
       parent.children.push(node);
       // Sort children by orderIndex
-      parent.children.sort((a, b) => a.orderIndex - b.orderIndex);
+      parent.children.sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
     }
   });
 
-  roots.sort((a, b) => a.orderIndex - b.orderIndex);
+  roots.sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
   return roots;
 }
 

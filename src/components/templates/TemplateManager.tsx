@@ -12,7 +12,7 @@ import {
   Building2,
   Scale,
 } from 'lucide-react';
-import { ProductTemplate } from '../../types';
+import { ProductTemplate, Assignee } from '../../types';
 import { useI18n } from '../../locales';
 import { GlassCard } from '../ui/GlassCard';
 import { TemplateEditModal } from './TemplateEditModal';
@@ -31,6 +31,7 @@ interface TemplateManagerProps {
     customerName: string
   ) => void;
   searchQuery: string;
+  team?: Assignee[];
 }
 
 export const TemplateManager: React.FC<TemplateManagerProps> = ({
@@ -39,6 +40,7 @@ export const TemplateManager: React.FC<TemplateManagerProps> = ({
   onDeleteTemplate,
   onInstantiateTemplate,
   searchQuery,
+  team,
 }) => {
   const { t } = useI18n();
 
@@ -180,6 +182,7 @@ export const TemplateManager: React.FC<TemplateManagerProps> = ({
         isOpen={editModalOpen}
         onClose={() => setEditModalOpen(false)}
         templateToEdit={templateToEdit}
+        team={team}
         onSave={(tmpl) => {
           onSaveTemplate(tmpl);
           setEditModalOpen(false);

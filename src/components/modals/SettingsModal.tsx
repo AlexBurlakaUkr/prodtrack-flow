@@ -27,6 +27,7 @@ import {
   ExternalLink,
   Cpu,
   AlertTriangle,
+  Power,
 } from 'lucide-react';
 import { ThemeMode, GradientTheme, Language, Assignee } from '../../types';
 import { useI18n } from '../../locales';
@@ -74,6 +75,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     'appearance' | 'schedule' | 'delays' | 'team' | 'glossary' | 'demo' | 'storage' | 'developer'
   >('appearance');
   const [importStatus, setImportStatus] = useState<string | null>(null);
+
+  // System Autostart on Boot State
+  const [isAutostartEnabled, setIsAutostartEnabled] = useState<boolean>(() => {
+    return localStorage.getItem('prodtrack_autostart_on_boot') === 'true';
+  });
+
+  const handleToggleAutostart = (enabled: boolean) => {
+    setIsAutostartEnabled(enabled);
+    localStorage.setItem('prodtrack_autostart_on_boot', String(enabled));
+  };
 
   // Team Member Form State
   const [editingMember, setEditingMember] = useState<Assignee | null>(null);
@@ -430,6 +441,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <Globe className="w-4 h-4 text-indigo-400" />
                   <span className="text-xs font-bold">{t('lang_ua')}</span>
                 </button>
+              </div>
+            </div>
+
+            {/* System Autostart on Boot */}
+            <div className="pt-4 border-t border-white/10">
+              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-white/5 dark:bg-slate-800/40 border border-white/10">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-400 shrink-0">
+                    <Power className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-slate-900 dark:text-white">
+                      {t('setting_autostart_title')}
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">
+                      {t('setting_autostart_desc')}
+                    </div>
+                  </div>
+                </div>
+
+                <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-3">
+                  <input
+                    type="checkbox"
+                    checked={isAutostartEnabled}
+                    onChange={(e) => handleToggleAutostart(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                </label>
               </div>
             </div>
           </div>

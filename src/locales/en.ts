@@ -134,6 +134,8 @@ export const en = {
   filter_by_status: 'Status Filter',
   filter_by_assignee: 'Filter by Specialist',
   no_matching_nodes: 'No components match your search criteria.',
+  move_up: 'Move Up (Priority)',
+  move_down: 'Move Down',
   
   // Orders Module
   orders_title: 'Production Orders & Multi-Item Batches',
@@ -359,7 +361,7 @@ export const en = {
   dev_title: 'About the Developer',
   dev_studio_name: 'OBStudio',
   dev_contact_email: 'obgamestudio@gmail.com',
-  dev_edition: 'v1.0.2 • Desktop Edition (Windows)',
+  dev_edition: 'v1.0.3 • Desktop Edition (Windows)',
   dev_tagline: 'Modern UI/UX & High-Performance Industrial Desktop Applications',
   dev_contact_btn: 'Contact Developer (Email)',
 
@@ -414,6 +416,35 @@ export const en = {
   break_elapsed: 'Elapsed',
   break_duration: 'Duration',
   break_progress: 'Break Progress',
+  unassigned: 'Unassigned',
+
+  // Autostart Settings
+  setting_autostart_title: 'Auto-start on system boot',
+  setting_autostart_desc: 'Automatically launch installed ProdTrack Flow desktop application when computer starts up',
+
+  // Field Explanatory Tooltips
+  field_tooltip_node_title: 'Full title of the component, assembly, or finished product',
+  field_tooltip_node_code: 'Unique engineering drawing code, SKU, or part number',
+  field_tooltip_node_level: 'Hierarchical BOM level (L1 — end product, L2..L5 — sub-assemblies and parts)',
+  field_tooltip_norm_hours: 'Labor standard hours required to manufacture or process this node',
+  field_tooltip_node_assignee: 'Specialists or workers assigned to this component',
+  field_tooltip_batch_qty: 'Quantity of this component required for the current production batch',
+  field_tooltip_unit: 'Unit of measurement (pcs, kg, m, units, etc.)',
+  field_tooltip_start_date: 'Planned manufacturing start date for this node',
+  field_tooltip_due_date: 'Target completion deadline for this node',
+  field_tooltip_notes: 'Technical specifications, instructions, or process requirements',
+  field_tooltip_order_title: 'Title of the production order or batch run',
+  field_tooltip_order_number: 'Unique production order tracking number',
+  field_tooltip_customer_name: 'Customer, client company, or internal department name',
+  field_tooltip_assigned_lead: 'Lead engineer or foreman responsible for the order',
+  field_tooltip_assigned_team: 'Production team and specialists executing the order',
+  field_tooltip_base_template: 'Product template used to automatically generate the BOM tree',
+  field_tooltip_project_name: 'Overall name of the production project or product line',
+  field_tooltip_project_code: 'Project identification code or SKU',
+  field_tooltip_target_units: 'Planned total production output quantity',
+  field_tooltip_description: 'Brief description, purpose, or technical specifications',
+  field_tooltip_template_name: 'Name of the reusable product blueprint template',
+  field_tooltip_template_code: 'Code or SKU of the reusable blueprint template',
 };
 
 export type TranslationKey = keyof typeof en;

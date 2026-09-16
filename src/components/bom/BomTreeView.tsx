@@ -253,6 +253,9 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
         map.set(n.parentId, list);
       }
     });
+    map.forEach((list) => {
+      list.sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+    });
     return map;
   }, [scopedNodes]);
 
@@ -463,7 +466,7 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
               </div>
             )}
 
-            {onSaveAsTemplate && !selectedOrderId && (
+            {onSaveAsTemplate && (
               <button
                 onClick={onSaveAsTemplate}
                 className="px-3.5 py-1.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/30 text-xs font-semibold text-purple-300 flex items-center gap-1.5 transition-all shadow-sm"
@@ -779,6 +782,7 @@ export const BomTreeView: React.FC<BomTreeViewProps> = ({
         projectId={project.id}
         orderId={selectedOrderId}
         hasChildren={nodeToEdit ? Boolean(childrenLookup.get(nodeToEdit.id)?.length) : false}
+        existingNodes={scopedNodes}
         onSave={(node) => {
           onSaveNode(node);
           setEditModalOpen(false);

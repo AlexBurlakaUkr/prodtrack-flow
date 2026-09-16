@@ -160,12 +160,14 @@ export async function saveOrderAndInstantiateBOM(
     image?: string;
     orderIndex: number;
     suggestedRole?: string;
+    assignees?: Assignee[];
+    assignee?: Assignee;
   }[] = [];
 
   if (templateId) {
     const tmpl = await db.templates.get(templateId);
     if (tmpl && tmpl.nodes.length > 0) {
-      baseNodes = tmpl.nodes.map((n) => ({
+      baseNodes = tmpl.nodes.map((n, idx) => ({
         id: n.id,
         parentId: n.parentId,
         title: n.title,
@@ -176,8 +178,10 @@ export async function saveOrderAndInstantiateBOM(
         unit: n.unit || 'pcs',
         notes: n.notes,
         image: n.image,
-        orderIndex: n.orderIndex,
+        orderIndex: typeof n.orderIndex === 'number' ? n.orderIndex : idx,
         suggestedRole: n.suggestedRole,
+        assignees: n.assignees,
+        assignee: n.assignee,
       }));
     }
   }
@@ -190,7 +194,9 @@ export async function saveOrderAndInstantiateBOM(
       .and((n) => !n.orderId)
       .toArray();
 
-    baseNodes = projectMasterNodes.map((n) => ({
+    projectMasterNodes.sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+
+    baseNodes = projectMasterNodes.map((n, idx) => ({
       id: n.id,
       parentId: n.parentId,
       title: n.title,
@@ -201,8 +207,10 @@ export async function saveOrderAndInstantiateBOM(
       unit: n.unit || 'pcs',
       notes: n.notes,
       image: n.image,
-      orderIndex: n.orderIndex,
+      orderIndex: typeof n.orderIndex === 'number' ? n.orderIndex : idx,
       suggestedRole: n.assignees?.[0]?.role,
+      assignees: n.assignees,
+      assignee: n.assignee,
     }));
   }
 
@@ -221,6 +229,8 @@ export async function saveOrderAndInstantiateBOM(
         unit: 'units',
         notes: order.notes || 'Початковий кінцевий виріб для нового замовлення',
         orderIndex: 0,
+        assignees: order.assignedLead ? [order.assignedLead] : undefined,
+        assignee: order.assignedLead,
       },
     ];
   }
@@ -234,7 +244,7 @@ export async function saveOrderAndInstantiateBOM(
     idMap.set(bn.id, `node-${order.id}-${bn.id.replace('node-', '').replace('tmpl-node-', '')}`);
   });
 
-  const clonedOrderNodes: BOMNode[] = baseNodes.map((bn) => {
+  const clonedOrderNodes: BOMNode[] = baseNodes.map((bn, idx) => {
     const newId = idMap.get(bn.id)!;
     const newParentId = bn.parentId ? idMap.get(bn.parentId) || null : null;
     const baseH = bn.baseNormHours;
@@ -242,6 +252,9 @@ export async function saveOrderAndInstantiateBOM(
     const baseQ = bn.baseBatchQuantity;
     const scaledQ = baseQ * multiplier;
     const matchedAssignee = team.find((t) => t.role === bn.suggestedRole) || defaultLead;
+    const nodeAssignees = (bn.assignees && bn.assignees.length > 0)
+      ? bn.assignees
+      : (bn.assignee ? [bn.assignee] : (matchedAssignee ? [matchedAssignee] : [defaultLead]));
 
     return {
       id: newId,
@@ -252,8 +265,8 @@ export async function saveOrderAndInstantiateBOM(
       code: bn.code,
       level: bn.level,
       progress: 0,
-      assignees: [matchedAssignee],
-      assignee: matchedAssignee,
+      assignees: nodeAssignees,
+      assignee: nodeAssignees[0] || defaultLead,
       status: 'pending',
       startDate: order.startDate,
       dueDate: order.targetDate,
@@ -263,7 +276,7 @@ export async function saveOrderAndInstantiateBOM(
       baseNormHours: baseH,
       normHours: scaledH,
       weight: scaledH,
-      orderIndex: bn.orderIndex,
+      orderIndex: typeof bn.orderIndex === 'number' ? bn.orderIndex : idx,
       notes: bn.notes,
       image: bn.image,
     };
@@ -401,27 +414,78 @@ export async function saveProjectAsTemplate(
   projectId: string,
   templateName: string,
   templateCode: string,
-  description: string
+  description: string,
+  orderId?: string | null
 ): Promise<ProductTemplate> {
   const project = await db.projects.get(projectId);
   if (!project) throw new Error(`Project ${projectId} not found`);
 
-  // Use base blueprint nodes (orderId == null)
-  const nodes = await db.nodes
-    .where('projectId')
-    .equals(projectId)
-    .and((n) => !n.orderId)
-    .toArray();
+  // Use order nodes if orderId given, else master nodes (orderId == null)
+  let nodes: BOMNode[] = [];
+  if (orderId) {
+    nodes = await db.nodes.where('orderId').equals(orderId).toArray();
+  } else {
+    nodes = await db.nodes
+      .where('projectId')
+      .equals(projectId)
+      .and((n) => !n.orderId)
+      .toArray();
+    if (nodes.length === 0) {
+      nodes = await db.nodes.where('projectId').equals(projectId).toArray();
+    }
+  }
+
+  // Build parent -> children map and sort siblings by orderIndex
+  const roots: BOMNode[] = [];
+  const childrenMap = new Map<string, BOMNode[]>();
+  nodes.forEach((n) => {
+    if (!n.parentId) {
+      roots.push(n);
+    } else {
+      const list = childrenMap.get(n.parentId) || [];
+      list.push(n);
+      childrenMap.set(n.parentId, list);
+    }
+  });
+
+  roots.sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+  childrenMap.forEach((list) => {
+    list.sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+  });
+
+  const orderedNodes: BOMNode[] = [];
+  const traverse = (node: BOMNode) => {
+    orderedNodes.push(node);
+    const children = childrenMap.get(node.id) || [];
+    children.forEach(traverse);
+  };
+  roots.forEach(traverse);
+
+  // If there are any orphaned nodes not connected to roots, append them
+  if (orderedNodes.length < nodes.length) {
+    const visited = new Set(orderedNodes.map((n) => n.id));
+    nodes.forEach((n) => {
+      if (!visited.has(n.id)) orderedNodes.push(n);
+    });
+  }
   
   const templateId = `tmpl-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
   const idMap = new Map<string, string>();
   
-  nodes.forEach((n) => {
+  orderedNodes.forEach((n) => {
     idMap.set(n.id, `tmpl-node-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`);
   });
 
-  const templateNodes: TemplateNode[] = nodes.map((n) => {
+  // Track sibling order index cleanly per parent
+  const siblingCountMap = new Map<string | null, number>();
+
+  const templateNodes: TemplateNode[] = orderedNodes.map((n) => {
     const hours = typeof n.baseNormHours === 'number' ? n.baseNormHours : n.normHours || 8;
+    const nodeAssignees = n.assignees && n.assignees.length > 0 ? n.assignees : (n.assignee ? [n.assignee] : []);
+    const parentKey = n.parentId || null;
+    const currentOrder = siblingCountMap.get(parentKey) ?? 0;
+    siblingCountMap.set(parentKey, currentOrder + 1);
+
     return {
       id: idMap.get(n.id)!,
       parentId: n.parentId ? idMap.get(n.parentId) || null : null,
@@ -436,8 +500,10 @@ export async function saveProjectAsTemplate(
       weight: hours,
       notes: n.notes,
       image: n.image,
-      orderIndex: n.orderIndex,
-      suggestedRole: n.assignees?.[0]?.role || n.assignee?.role || 'Lead Specialist',
+      orderIndex: typeof n.orderIndex === 'number' ? n.orderIndex : currentOrder,
+      suggestedRole: nodeAssignees[0]?.role || 'Lead Specialist',
+      assignees: nodeAssignees,
+      assignee: nodeAssignees[0] || undefined,
     };
   });
 
@@ -456,6 +522,49 @@ export async function saveProjectAsTemplate(
 
   await db.templates.put(newTemplate);
   return newTemplate;
+}
+
+/**
+ * Move node order (priority) among siblings up or down
+ */
+export async function moveNodeOrder(
+  nodeId: string,
+  direction: 'up' | 'down'
+): Promise<BOMNode[]> {
+  const target = await db.nodes.get(nodeId);
+  if (!target) return [];
+
+  let siblings: BOMNode[] = [];
+  if (target.orderId) {
+    siblings = await db.nodes
+      .where('orderId')
+      .equals(target.orderId)
+      .and((n) => n.parentId === target.parentId)
+      .toArray();
+  } else {
+    siblings = await db.nodes
+      .where('projectId')
+      .equals(target.projectId)
+      .and((n) => !n.orderId && n.parentId === target.parentId)
+      .toArray();
+  }
+
+  siblings.sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+  const currentIndex = siblings.findIndex((s) => s.id === nodeId);
+  if (currentIndex === -1) return [];
+
+  const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+  if (targetIndex < 0 || targetIndex >= siblings.length) return siblings;
+
+  const item = siblings.splice(currentIndex, 1)[0];
+  siblings.splice(targetIndex, 0, item);
+
+  siblings.forEach((s, idx) => {
+    s.orderIndex = idx;
+  });
+
+  await db.nodes.bulkPut(siblings);
+  return siblings;
 }
 
 /**
@@ -505,8 +614,11 @@ export async function instantiateTemplateToProject(
   const startDate = new Date(startDateStr);
 
   // 1. Create Base Master Blueprint Nodes (orderId: null, 1 unit)
-  const masterNodes: BOMNode[] = template.nodes.map((tn) => {
+  const masterNodes: BOMNode[] = template.nodes.map((tn, idx) => {
     const matchedAssignee = team.find((t) => t.role === tn.suggestedRole) || defaultAssignee;
+    const targetAssignees = (tn.assignees && tn.assignees.length > 0)
+      ? tn.assignees
+      : (tn.assignee ? [tn.assignee] : [matchedAssignee]);
     const durationDays = tn.defaultDurationDays || 14;
     const dueDate = addDays(startDate, durationDays);
     const baseH = tn.baseNormHours || tn.normHours || 8;
@@ -520,8 +632,8 @@ export async function instantiateTemplateToProject(
       code: tn.code,
       level: tn.level,
       progress: 0,
-      assignees: [matchedAssignee],
-      assignee: matchedAssignee,
+      assignees: targetAssignees,
+      assignee: targetAssignees[0] || defaultAssignee,
       status: 'pending',
       startDate: startDateStr,
       dueDate: format(dueDate, 'yyyy-MM-dd'),
@@ -531,7 +643,7 @@ export async function instantiateTemplateToProject(
       baseNormHours: baseH,
       normHours: baseH,
       weight: baseH,
-      orderIndex: tn.orderIndex,
+      orderIndex: typeof tn.orderIndex === 'number' ? tn.orderIndex : idx,
       notes: tn.notes,
       image: tn.image,
     };

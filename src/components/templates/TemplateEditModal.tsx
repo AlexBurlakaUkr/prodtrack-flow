@@ -6,17 +6,22 @@ import {
   Clock,
   Briefcase,
   Check,
+  User,
 } from 'lucide-react';
-import { ProductTemplate, TemplateNode, NodeLevel } from '../../types';
+import { ProductTemplate, TemplateNode, NodeLevel, Assignee } from '../../types';
 import { useI18n } from '../../locales';
 import { APP_CONFIG } from '../../config/AppConfig';
 import { Modal } from '../ui/Modal';
+import { Avatar, StackedAvatars } from '../ui/Avatar';
+import { FieldLabel } from '../ui/FieldLabel';
+import { db } from '../../services/db';
 
 interface TemplateEditModalProps {
   isOpen: boolean;
   onClose: () => void;
   templateToEdit: ProductTemplate | null;
   onSave: (template: ProductTemplate) => void;
+  team?: Assignee[];
 }
 
 export const TemplateEditModal: React.FC<TemplateEditModalProps> = ({
@@ -24,16 +29,33 @@ export const TemplateEditModal: React.FC<TemplateEditModalProps> = ({
   onClose,
   templateToEdit,
   onSave,
+  team = [],
 }) => {
   const { t } = useI18n();
 
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
-  const [archetype, setArchetype] = useState('');
-  const [category, setCategory] = useState('');
+  const [archetype, setArchetype] = useState('Standard Unit');
+  const [category, setCategory] = useState('Electronics');
   const [description, setDescription] = useState('');
   const [nodes, setNodes] = useState<TemplateNode[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [teamList, setTeamList] = useState<Assignee[]>(team);
+  const [openAssigneesNodeId, setOpenAssigneesNodeId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (team && team.length > 0) {
+      setTeamList(team);
+    } else {
+      db.team.toArray().then((loaded) => {
+        if (loaded && loaded.length > 0) {
+          setTeamList(loaded);
+        } else {
+          setTeamList(APP_CONFIG.DEFAULT_ASSIGNEES);
+        }
+      });
+    }
+  }, [team, isOpen]);
 
   useEffect(() => {
     if (templateToEdit) {
@@ -43,9 +65,10 @@ export const TemplateEditModal: React.FC<TemplateEditModalProps> = ({
       setCategory(templateToEdit.category);
       setDescription(templateToEdit.description);
       setNodes(
-        templateToEdit.nodes.map((n) => ({
+        templateToEdit.nodes.map((n, idx) => ({
           ...n,
           normHours: typeof n.normHours === 'number' ? n.normHours : n.weight || 8,
+          orderIndex: typeof n.orderIndex === 'number' ? n.orderIndex : idx,
         }))
       );
     } else {
@@ -54,6 +77,7 @@ export const TemplateEditModal: React.FC<TemplateEditModalProps> = ({
       setArchetype('Modular Platform Archetype');
       setCategory('Hardware Manufacturing');
       setDescription('');
+      const defaultMember = teamList[0] || APP_CONFIG.DEFAULT_ASSIGNEES[0];
       setNodes([
         {
           id: `tmpl-node-root-${Date.now()}`,
@@ -67,12 +91,14 @@ export const TemplateEditModal: React.FC<TemplateEditModalProps> = ({
           normHours: 50,
           weight: 50,
           orderIndex: 0,
-          suggestedRole: 'Chief Battery Architect',
+          suggestedRole: defaultMember?.role || 'Chief Battery Architect',
+          assignee: defaultMember,
+          assignees: defaultMember ? [defaultMember] : [],
         },
       ]);
     }
     setErrors({});
-  }, [templateToEdit, isOpen]);
+  }, [templateToEdit, isOpen, teamList]);
 
   const handleUpdateNode = (id: string, updates: Partial<TemplateNode>) => {
     setNodes((prev) =>
@@ -83,6 +109,7 @@ export const TemplateEditModal: React.FC<TemplateEditModalProps> = ({
   const handleAddNode = (parentId: string | null = null) => {
     const parent = nodes.find((n) => n.id === parentId);
     const level = (parent ? Math.min(5, parent.level + 1) : 2) as NodeLevel;
+    const defaultMember = teamList[0] || APP_CONFIG.DEFAULT_ASSIGNEES[0];
 
     const newNode: TemplateNode = {
       id: `tmpl-node-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
@@ -96,7 +123,9 @@ export const TemplateEditModal: React.FC<TemplateEditModalProps> = ({
       normHours: 8,
       weight: 8,
       orderIndex: nodes.length,
-      suggestedRole: 'Lead Automation Engineer',
+      suggestedRole: defaultMember?.role || 'Lead Automation Engineer',
+      assignee: defaultMember,
+      assignees: defaultMember ? [defaultMember] : [],
     };
 
     setNodes((prev) => [...prev, newNode]);
@@ -128,6 +157,67 @@ export const TemplateEditModal: React.FC<TemplateEditModalProps> = ({
       return;
     }
 
+    const roots: TemplateNode[] = [];
+    const childrenMap = new Map<string, TemplateNode[]>();
+    nodes.forEach((n) => {
+      if (!n.parentId) {
+        roots.push(n);
+      } else {
+        const list = childrenMap.get(n.parentId) || [];
+        list.push(n);
+        childrenMap.set(n.parentId, list);
+      }
+    });
+
+    roots.sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+    childrenMap.forEach((list) => {
+      list.sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+    });
+
+    const orderedNodes: TemplateNode[] = [];
+    const traverse = (node: TemplateNode) => {
+      orderedNodes.push(node);
+      const children = childrenMap.get(node.id) || [];
+      children.forEach(traverse);
+    };
+    roots.forEach(traverse);
+
+    if (orderedNodes.length < nodes.length) {
+      const visited = new Set(orderedNodes.map((n) => n.id));
+      nodes.forEach((n) => {
+        if (!visited.has(n.id)) orderedNodes.push(n);
+      });
+    }
+
+    const siblingCountMap = new Map<string | null, number>();
+    const sanitizedNodes = orderedNodes.map((n) => {
+      const parsedH = parseFloat(String(n.normHours));
+      const h = !isNaN(parsedH) && parsedH > 0 ? parsedH : 1;
+      const parsedD = parseInt(String(n.defaultDurationDays), 10);
+      const d = !isNaN(parsedD) && parsedD > 0 ? parsedD : 1;
+      const parentKey = n.parentId || null;
+      const currentOrder = siblingCountMap.get(parentKey) ?? 0;
+      siblingCountMap.set(parentKey, currentOrder + 1);
+      const nodeAssignees =
+        n.assignees && n.assignees.length > 0
+          ? n.assignees
+          : n.assignee
+          ? [n.assignee]
+          : [];
+
+      return {
+        ...n,
+        normHours: h,
+        weight: h,
+        baseNormHours: h,
+        defaultDurationDays: d,
+        orderIndex: typeof n.orderIndex === 'number' ? n.orderIndex : currentOrder,
+        assignees: nodeAssignees,
+        assignee: nodeAssignees[0] || undefined,
+        suggestedRole: nodeAssignees[0]?.role || n.suggestedRole || 'Lead Specialist',
+      };
+    });
+
     const updatedTemplate: ProductTemplate = {
       id: templateToEdit ? templateToEdit.id : `tmpl-${Date.now()}`,
       name: name.trim(),
@@ -138,14 +228,16 @@ export const TemplateEditModal: React.FC<TemplateEditModalProps> = ({
       createdAt: templateToEdit ? templateToEdit.createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       isBuiltIn: templateToEdit?.isBuiltIn || false,
-      nodes,
+      nodes: sanitizedNodes,
     };
 
     onSave(updatedTemplate);
     onClose();
   };
 
-  const totalTemplateHours = nodes.reduce((acc, curr) => acc + (curr.normHours || 0), 0);
+  const totalTemplateHours = Math.round(
+    nodes.reduce((acc, curr) => acc + (parseFloat(String(curr.normHours)) || 0), 0) * 10
+  ) / 10;
 
   return (
     <Modal
@@ -175,9 +267,11 @@ export const TemplateEditModal: React.FC<TemplateEditModalProps> = ({
         {/* Template Overview Details */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white/10 dark:bg-slate-800/40 p-4 rounded-2xl border border-white/10">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              {t('template_name')} *
-            </label>
+            <FieldLabel
+              label={t('template_name')}
+              tooltip={t('field_tooltip_template_name')}
+              required={true}
+            />
             <input
               type="text"
               value={name}
@@ -188,9 +282,11 @@ export const TemplateEditModal: React.FC<TemplateEditModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              {t('template_code')} *
-            </label>
+            <FieldLabel
+              label={t('template_code')}
+              tooltip={t('field_tooltip_template_code')}
+              required={true}
+            />
             <input
               type="text"
               value={code}
@@ -245,15 +341,23 @@ export const TemplateEditModal: React.FC<TemplateEditModalProps> = ({
             </button>
           </div>
 
-          <div className="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar pr-1">
+          <div className="space-y-2 max-h-[440px] overflow-y-auto custom-scrollbar pr-1">
             {nodes.map((node) => {
               const levelConf =
                 APP_CONFIG.LEVELS.find((l) => l.level === node.level) || APP_CONFIG.LEVELS[0];
 
+              const nodeAssignees =
+                node.assignees && node.assignees.length > 0
+                  ? node.assignees
+                  : node.assignee
+                  ? [node.assignee]
+                  : [];
+              const currentAssignee = nodeAssignees[0];
+
               return (
                 <div
                   key={node.id}
-                  className={`p-3 rounded-2xl bg-white/10 dark:bg-slate-800/50 border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3`}
+                  className="p-3 rounded-2xl bg-white/10 dark:bg-slate-800/50 border border-white/10 flex flex-col xl:flex-row items-start xl:items-center justify-between gap-3"
                 >
                   <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${levelConf.badgeBg}`}>
@@ -272,29 +376,39 @@ export const TemplateEditModal: React.FC<TemplateEditModalProps> = ({
                       type="text"
                       value={node.title}
                       onChange={(e) => handleUpdateNode(node.id, { title: e.target.value })}
-                      className="flex-1 min-w-[180px] px-2.5 py-1 text-xs rounded-lg bg-black/30 border border-white/10 text-white"
+                      className="flex-1 min-w-[160px] px-2.5 py-1 text-xs rounded-lg bg-black/30 border border-white/10 text-white"
                       placeholder="Component Title"
                     />
                   </div>
 
-                  {/* Norm-Hours & Durations */}
-                  <div className="flex items-center gap-2 shrink-0">
+                  {/* Norm-Hours, Durations, and Assignee Selection */}
+                  <div className="flex items-center gap-2 flex-wrap shrink-0">
                     {/* Norm-Hours */}
                     <div className="flex items-center gap-1 bg-black/30 px-2 py-1 rounded-lg border border-white/10 text-[11px] text-slate-300">
                       <Clock className="w-3 h-3 text-sky-400" />
                       <span>{t('norm_hours_short')}:</span>
                       <input
-                        type="number"
-                        min="0.5"
-                        step="0.5"
-                        value={node.normHours}
-                        onChange={(e) =>
+                        type="text"
+                        inputMode="decimal"
+                        value={node.normHours ?? ''}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '' || /^\d*([.,]\d*)?$/.test(val)) {
+                            handleUpdateNode(node.id, {
+                              normHours: val as any,
+                              weight: val as any,
+                            });
+                          }
+                        }}
+                        onBlur={() => {
+                          const parsed = parseFloat(String(node.normHours));
+                          const valid = !isNaN(parsed) && parsed > 0 ? parsed : 1;
                           handleUpdateNode(node.id, {
-                            normHours: Number(e.target.value) || 1,
-                            weight: Number(e.target.value) || 1,
-                          })
-                        }
-                        className="w-12 bg-transparent text-center font-bold text-sky-300 outline-none"
+                            normHours: valid,
+                            weight: valid,
+                          });
+                        }}
+                        className="w-12 bg-transparent text-center font-bold text-sky-300 outline-none border-b border-transparent focus:border-sky-400"
                       />
                     </div>
 
@@ -303,14 +417,110 @@ export const TemplateEditModal: React.FC<TemplateEditModalProps> = ({
                       <Clock className="w-3 h-3 text-indigo-400" />
                       <span>Days:</span>
                       <input
-                        type="number"
-                        min="1"
-                        value={node.defaultDurationDays}
-                        onChange={(e) =>
-                          handleUpdateNode(node.id, { defaultDurationDays: Number(e.target.value) || 1 })
-                        }
-                        className="w-10 bg-transparent text-center font-bold text-indigo-300 outline-none"
+                        type="text"
+                        inputMode="numeric"
+                        value={node.defaultDurationDays ?? ''}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '' || /^\d*$/.test(val)) {
+                            handleUpdateNode(node.id, { defaultDurationDays: val as any });
+                          }
+                        }}
+                        onBlur={() => {
+                          const parsed = parseInt(String(node.defaultDurationDays), 10);
+                          const valid = !isNaN(parsed) && parsed > 0 ? parsed : 1;
+                          handleUpdateNode(node.id, { defaultDurationDays: valid });
+                        }}
+                        className="w-10 bg-transparent text-center font-bold text-indigo-300 outline-none border-b border-transparent focus:border-indigo-400"
                       />
+                    </div>
+
+                    {/* Multi-Assignee Selector right after Days */}
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setOpenAssigneesNodeId(openAssigneesNodeId === node.id ? null : node.id)
+                        }
+                        className="flex items-center gap-1.5 bg-black/30 hover:bg-black/50 px-2.5 py-1 rounded-lg border border-white/10 hover:border-indigo-400/40 text-[11px] text-slate-300 transition-all cursor-pointer"
+                        title={t('node_assignee')}
+                      >
+                        {nodeAssignees.length > 0 ? (
+                          <>
+                            <StackedAvatars assignees={nodeAssignees} size="xs" />
+                            <span className="font-semibold text-white">({nodeAssignees.length})</span>
+                          </>
+                        ) : (
+                          <>
+                            <User className="w-3.5 h-3.5 text-slate-400" />
+                            <span className="text-slate-400">{t('unassigned')}</span>
+                          </>
+                        )}
+                      </button>
+
+                      {/* Multi-Assignee Selection Popover */}
+                      {openAssigneesNodeId === node.id && (
+                        <>
+                          <div
+                            className="fixed inset-0 z-40"
+                            onClick={() => setOpenAssigneesNodeId(null)}
+                          />
+                          <div className="absolute right-0 top-full mt-1.5 z-50 w-64 p-2.5 rounded-2xl bg-slate-900/95 border border-white/20 shadow-2xl backdrop-blur-xl animate-fadeIn">
+                            <div className="text-[11px] font-bold text-slate-300 mb-2 px-1 flex items-center justify-between">
+                              <span>{t('node_assignee')}</span>
+                              <span className="text-[10px] text-indigo-400 font-semibold">
+                                {nodeAssignees.length} вибрано
+                              </span>
+                            </div>
+                            <div className="space-y-1 max-h-48 overflow-y-auto custom-scrollbar">
+                              {teamList.map((member) => {
+                                const isSelected = nodeAssignees.some((a) => a.id === member.id);
+                                return (
+                                  <button
+                                    type="button"
+                                    key={member.id}
+                                    onClick={() => {
+                                      const updated = isSelected
+                                        ? nodeAssignees.filter((a) => a.id !== member.id)
+                                        : [...nodeAssignees, member];
+                                      handleUpdateNode(node.id, {
+                                        assignees: updated,
+                                        assignee: updated[0] || undefined,
+                                        suggestedRole: updated[0]?.role || node.suggestedRole,
+                                      });
+                                    }}
+                                    className={`w-full flex items-center justify-between p-1.5 rounded-xl border text-left transition-all ${
+                                      isSelected
+                                        ? 'bg-indigo-500/25 border-indigo-400 text-white shadow-sm'
+                                        : 'bg-white/5 border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/10'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <Avatar assignee={member} size="xs" />
+                                      <div className="truncate">
+                                        <div className="text-xs font-bold truncate">{member.name}</div>
+                                        <div className="text-[9px] text-slate-400 truncate">{member.role}</div>
+                                      </div>
+                                    </div>
+                                    {isSelected && (
+                                      <Check className="w-3.5 h-3.5 text-indigo-400 shrink-0 ml-1" />
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            <div className="mt-2 pt-2 border-t border-white/10 flex justify-end">
+                              <button
+                                type="button"
+                                onClick={() => setOpenAssigneesNodeId(null)}
+                                className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold shadow"
+                              >
+                                OK
+                              </button>
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
 
                     {/* Add child button */}

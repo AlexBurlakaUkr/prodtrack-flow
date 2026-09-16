@@ -38,7 +38,7 @@ export const InstantiateTemplateModal: React.FC<InstantiateTemplateModalProps> =
   const [activeTmplId, setActiveTmplId] = useState<string>('');
   const [projectName, setProjectName] = useState('');
   const [projectCode, setProjectCode] = useState('');
-  const [batchQuantity, setBatchQuantity] = useState(10);
+  const [batchQuantity, setBatchQuantity] = useState<number | string>(10);
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [customerName, setCustomerName] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -188,10 +188,17 @@ export const InstantiateTemplateModal: React.FC<InstantiateTemplateModalProps> =
                 Batch Size (Units)
               </label>
               <input
-                type="number"
-                min="1"
+                type="text"
+                inputMode="numeric"
                 value={batchQuantity}
-                onChange={(e) => setBatchQuantity(Number(e.target.value))}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '' || /^\d*$/.test(val)) setBatchQuantity(val);
+                }}
+                onBlur={() => {
+                  const parsed = parseInt(String(batchQuantity), 10);
+                  setBatchQuantity(!isNaN(parsed) && parsed > 0 ? parsed : 1);
+                }}
                 className="w-full px-3 py-2 text-xs rounded-xl bg-white/30 dark:bg-slate-800/60 border border-white/20 dark:border-white/10 text-white outline-none"
               />
             </div>

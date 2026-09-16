@@ -100,6 +100,8 @@ export interface TemplateNode {
   image?: string;
   orderIndex: number;
   suggestedRole?: string;
+  assignees?: Assignee[];
+  assignee?: Assignee;
 }
 
 export interface ProductTemplate {

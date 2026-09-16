@@ -94,7 +94,7 @@ export const BomNodeCard: React.FC<BomNodeCardProps> = ({
   return (
     <GlassCard
       variant="elevated"
-      className={`group w-full max-w-[540px] transition-all duration-300 border-l-4 ${
+      className={`group w-full max-w-[540px] transition-all duration-300 border-l-4 overflow-hidden ${
         node.status === 'delayed'
           ? 'border-l-rose-500 shadow-rose-950/20'
           : node.status === 'completed'
@@ -189,12 +189,18 @@ export const BomNodeCard: React.FC<BomNodeCardProps> = ({
 
         {/* Main Content: Title + Thumbnail Preview */}
         <div className="flex items-start gap-3 justify-between">
-          <div className="min-w-0 flex-1">
-            <h4 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white tracking-tight leading-snug break-words">
+          <div className="min-w-0 flex-1 overflow-hidden">
+            <h4
+              className="text-sm sm:text-base font-bold text-slate-900 dark:text-white tracking-tight leading-snug break-words [overflow-wrap:anywhere] line-clamp-2 overflow-hidden text-ellipsis"
+              title={node.title}
+            >
               {node.title}
             </h4>
             {node.notes && (
-              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 line-clamp-2 leading-relaxed">
+              <p
+                className="text-xs text-slate-600 dark:text-slate-400 mt-1 line-clamp-2 leading-relaxed break-words [overflow-wrap:anywhere] overflow-hidden text-ellipsis"
+                title={node.notes}
+              >
                 {node.notes}
               </p>
             )}
